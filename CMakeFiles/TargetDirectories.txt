@@ -1,0 +1,3 @@
+/home/vf/Thesis/dealII_NuFI/1x1v/CMakeFiles/nufi_poisson.dir
+/home/vf/Thesis/dealII_NuFI/1x1v/CMakeFiles/edit_cache.dir
+/home/vf/Thesis/dealII_NuFI/1x1v/CMakeFiles/rebuild_cache.dir
