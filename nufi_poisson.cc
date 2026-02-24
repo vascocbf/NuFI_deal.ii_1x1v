@@ -71,11 +71,10 @@ double f0(const double x,
 
 // =-=-=-=-= Compute rho(x) =-=-=-=-=
 
-double compute_rho(const double x)
+double compute_rho(const double x, const unsigned int Nv=NV)
 {
   const double v_min = V_DOMAIN_LEFT;
   const double v_max = V_DOMAIN_RIGHT;
-  const double Nv = NV;
 
   const double dv = std::abs(v_min - v_max)/Nv;
 
@@ -98,29 +97,34 @@ template <int dim>
 class ChargeDensity : public Function<dim>
 {
 public:
-  ChargeDensity(double eps, double k)
-    : Function<dim>(1), eps(eps), k(k) {}
+  ChargeDensity(double eps,
+                double k,
+                unsigned int Nv)
+    : Function<dim>(1), eps(eps), k(k), Nv(Nv) {}
 
   virtual double value(const Point<dim> &p,
-                       const unsigned int component = 0) const override
+                       [[maybe_unused]] const unsigned int component = 0) const override
   {
-    return compute_rho(p[0]);
+    return compute_rho(p[0], Nv);
   }
 
 private:
   const double eps;
   const double k;
+  const unsigned int Nv;
 };
 
-/* ------------------------------
-   Poisson Solver
---------------------------------*/
+
+// =-=-=-=-= Poisson Solver =-=-=-=-=
+
 template <int dim>
 class PoissonProblem
 {
 public:
-  PoissonProblem(unsigned int degree);
+  PoissonProblem(unsigned int degree, unsigned int Nv);
   void run();
+
+  void set_Nv(unsigned int new_Nv);
 
 private:
   void setup_system();
@@ -139,13 +143,21 @@ private:
 
   Vector<double> solution;      // phi
   Vector<double> system_rhs;
+
+  unsigned int Nv;
 };
 
+template <int dim>
+void PoissonProblem<dim>::set_Nv(unsigned int new_Nv)
+{
+  Nv = new_Nv;
+}
 
 template <int dim>
-PoissonProblem<dim>::PoissonProblem(unsigned int degree)
+PoissonProblem<dim>::PoissonProblem(unsigned int degree, unsigned int Nv)
   : fe(degree)
   , dof_handler(triangulation)
+  , Nv(Nv)
 {}
 
 
@@ -176,6 +188,35 @@ void PoissonProblem<dim>::setup_system()
 }
 
 
+// =-=-=-=-= E_field = -dPhi/dx =-=-=-=-=
+
+template <int dim>
+class ElectricFieldPostprocessor : public DataPostprocessorVector<dim>
+{
+public:
+  ElectricFieldPostprocessor()
+    : DataPostprocessorVector<dim>("electric_field", update_gradients)
+  {}
+
+  virtual void evaluate_scalar_field(
+    const DataPostprocessorInputs::Scalar<dim> &input_data,
+    std::vector<Vector<double>> &computed_quantities) const override
+  {
+    AssertDimension(input_data.solution_gradients.size(),
+                    computed_quantities.size());
+
+    for (unsigned int p = 0; p < input_data.solution_gradients.size(); ++p)
+      {
+        AssertDimension(computed_quantities[p].size(), dim);
+        for (unsigned int d = 0; d < dim; ++d)
+          computed_quantities[p][d] = -input_data.solution_gradients[p][d];
+      }
+  }
+};
+
+
+// =-=-=-=-= Poisson equation solver =-=-=-=-=
+
 template <int dim>
 void PoissonProblem<dim>::assemble_system()
 {
@@ -193,7 +234,7 @@ void PoissonProblem<dim>::assemble_system()
   Vector<double>     cell_rhs(dofs_per_cell);
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
-  ChargeDensity<dim> rhs_function(EPS, WAVE_NR);
+  ChargeDensity<dim> rhs_function(EPS, WAVE_NR, Nv);
 
   for (const auto &cell : dof_handler.active_cell_iterators())
   {
@@ -261,9 +302,8 @@ void PoissonProblem<dim>::output_results() const
   for (unsigned int i = 0; i < support_points.size(); ++i)
     x_coordinate[i] = support_points[i][0];  // x-component in 1D
                                              
-
-  /* ---- Output density ---- */
-  ChargeDensity<dim> rho(EPS, WAVE_NR);
+  //---- Output density ----
+  ChargeDensity<dim> rho(EPS, WAVE_NR, Nv);
   Vector<double> density(triangulation.n_active_cells());
 
   DataOut<dim> data_out_rho;
@@ -280,25 +320,15 @@ void PoissonProblem<dim>::output_results() const
   std::ofstream out1("density.vtk");
   data_out_rho.write_vtk(out1);
 
-
-  /* ---- Output electric field ---- */
+  //---- Output electric field & potential ----
   DataOut<dim> data_out_E;
   data_out_E.attach_dof_handler(dof_handler);
 
-  std::vector<std::string> E_names(dim, "E");
-  std::vector<DataComponentInterpretation::DataComponentInterpretation>
-      interpretation(dim,
-                     DataComponentInterpretation::component_is_part_of_vector);
-
+  ElectricFieldPostprocessor<dim> electric_field;
   Vector<double> dummy(solution.size() * dim);
 
-  data_out_E.add_data_vector(solution,
-                             "potential");
-
-  data_out_E.add_data_vector(solution,
-                             "E_field",
-                             DataOut<dim>::type_dof_data,
-                             interpretation);
+  data_out_E.add_data_vector(solution, "potential");
+  data_out_E.add_data_vector(solution, electric_field);
   data_out_E.add_data_vector(x_coordinate, "x_coordinate");
 
   data_out_E.build_patches();
@@ -328,7 +358,8 @@ int main()
 {
   try
   {
-    PoissonProblem<DIMENSION> poisson_problem(FE_DEGREE);
+    PoissonProblem<DIMENSION> poisson_problem(FE_DEGREE, NV);
+    poisson_problem.set_Nv(NV);
     poisson_problem.run();
   }
   catch (std::exception &exc)
