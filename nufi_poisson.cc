@@ -3,6 +3,7 @@
 #include <deal.II/base/function.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/logstream.h>
+#include <deal.II/base/tensor.h>
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/tensor_function.h>
 #include <deal.II/base/index_set.h>
@@ -21,6 +22,7 @@
 
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
+#include <deal.II/dofs/dof_renumbering.h>
 
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
@@ -28,6 +30,7 @@
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 
+#include <deal.II/numerics/vector_tools_boundary.h>
 #include <fstream>
 #include <iostream>
 
@@ -116,6 +119,16 @@ private:
   const unsigned int Nv;
 };
 
+template <int dim>
+class BoundaryValues : public Function<dim>
+{
+public:
+  virtual double value(const Point<dim> &p,
+                       const unsigned int component = 0) const override
+  {
+    return 0.; // boundary value at periodic boundary
+  }
+};
 
 // =-=-=-=-= Poisson Solver =-=-=-=-=
 
@@ -147,6 +160,8 @@ private:
   Vector<double> solution;      // phi
   Vector<double> system_rhs;
 
+  MappingQ<dim> mapping;
+
   unsigned int Nv;
 };
 
@@ -161,6 +176,7 @@ template <int dim>
 PoissonProblem<dim>::PoissonProblem(unsigned int degree, unsigned int Nv)
   : fe(degree)
   , dof_handler(triangulation)
+  , mapping(degree)
   , Nv(Nv)
 {}
 
@@ -175,14 +191,16 @@ void PoissonProblem<dim>::create_mesh()
                             X_DOMAIN_RIGHT);
 
   // Make x-dim boundaries periodic
+  Tensor<1, dim> offset;
   std::vector<GridTools::PeriodicFacePair<
               typename Triangulation<dim>::cell_iterator>> periodicity_vector;
-  
+
   GridTools::collect_periodic_faces(triangulation,
                                     0,
                                     1,
                                     0,
-                                    periodicity_vector);
+                                    periodicity_vector,
+                                    offset);
   
   triangulation.add_periodicity(periodicity_vector);
 
@@ -214,7 +232,6 @@ void PoissonProblem<dim>::setup_system()
   solution.reinit(dof_handler.n_dofs());
   system_rhs.reinit(dof_handler.n_dofs());
 }
-
 
 // =-=-=-=-= E_field = -dPhi/dx =-=-=-=-=
 
@@ -320,7 +337,6 @@ void PoissonProblem<dim>::output_results() const
   // --- extract DoF coordinates ---
   std::vector<Point<dim>> support_points(dof_handler.n_dofs());
 
-  MappingQ1<dim> mapping;
   DoFTools::map_dofs_to_support_points(mapping,
                                        dof_handler,
                                        support_points);
@@ -370,7 +386,6 @@ template <int dim>
 void PoissonProblem<dim>::run()
 {
   create_mesh();
-
   setup_system();
   assemble_system();
   solve();
