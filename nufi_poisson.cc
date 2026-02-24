@@ -5,6 +5,7 @@
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/tensor_function.h>
+#include <deal.II/base/index_set.h>
 
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
@@ -16,6 +17,7 @@
 
 #include <deal.II/grid/tria.h>
 #include <deal.II/grid/grid_generator.h>
+#include <deal.II/grid/grid_tools.h>
 
 #include <deal.II/dofs/dof_handler.h>
 #include <deal.II/dofs/dof_tools.h>
@@ -127,6 +129,7 @@ public:
   void set_Nv(unsigned int new_Nv);
 
 private:
+  void create_mesh();
   void setup_system();
   void assemble_system();
   void solve();
@@ -147,6 +150,7 @@ private:
   unsigned int Nv;
 };
 
+
 template <int dim>
 void PoissonProblem<dim>::set_Nv(unsigned int new_Nv)
 {
@@ -160,6 +164,30 @@ PoissonProblem<dim>::PoissonProblem(unsigned int degree, unsigned int Nv)
   , Nv(Nv)
 {}
 
+
+// =-=-=-=-= Make Grid =-=-=-=-=
+
+template<int dim>
+void PoissonProblem<dim>::create_mesh()
+{
+  GridGenerator::hyper_cube(triangulation,
+                            X_DOMAIN_LEFT,
+                            X_DOMAIN_RIGHT);
+
+  // Make x-dim boundaries periodic
+  std::vector<GridTools::PeriodicFacePair<
+              typename Triangulation<dim>::cell_iterator>> periodicity_vector;
+  
+  GridTools::collect_periodic_faces(triangulation,
+                                    0,
+                                    1,
+                                    0,
+                                    periodicity_vector);
+  
+  triangulation.add_periodicity(periodicity_vector);
+
+  triangulation.refine_global(GLOBAL_REFINEMENT);
+}
 
 template <int dim>
 void PoissonProblem<dim>::setup_system()
@@ -341,11 +369,7 @@ void PoissonProblem<dim>::output_results() const
 template <int dim>
 void PoissonProblem<dim>::run()
 {
-  GridGenerator::hyper_cube(triangulation,
-                            X_DOMAIN_LEFT,
-                            X_DOMAIN_RIGHT);
-
-  triangulation.refine_global(GLOBAL_REFINEMENT);
+  create_mesh();
 
   setup_system();
   assemble_system();
