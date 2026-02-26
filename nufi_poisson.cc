@@ -119,16 +119,6 @@ private:
   const unsigned int Nv;
 };
 
-template <int dim>
-class BoundaryValues : public Function<dim>
-{
-public:
-  virtual double value(const Point<dim> &p,
-                       const unsigned int component = 0) const override
-  {
-    return 0.; // boundary value at periodic boundary
-  }
-};
 
 // =-=-=-=-= Poisson Solver =-=-=-=-=
 
@@ -215,12 +205,9 @@ void PoissonProblem<dim>::setup_system()
   constraints.clear();
   DoFTools::make_hanging_node_constraints(dof_handler, constraints);
 
-  // Homogeneous Dirichlet BC
-  VectorTools::interpolate_boundary_values(
-      dof_handler,
-      0,
-      Functions::ZeroFunction<dim>(),
-      constraints);
+  // 'boundary' condition phi(x_0) = 0 
+  constraints.add_line(0);
+  constraints.set_inhomogeneity(0, 0.0);
 
   constraints.close();
 

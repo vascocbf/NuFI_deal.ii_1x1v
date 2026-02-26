@@ -3,3 +3,4 @@ CMakeCache.txt
 compile_commands.json
 CMakeFiles/
 nufi_poisson
+*.ipynb
