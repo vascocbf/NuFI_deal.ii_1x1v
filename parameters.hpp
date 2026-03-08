@@ -20,6 +20,9 @@ namespace Parameters
 
   constexpr double EPS = 0.01;
   constexpr double WAVE_NR = 0.5;
+
+  constexpr double DT=0.05;
+  constexpr unsigned int TMAX = 10;
 }
 
 #endif

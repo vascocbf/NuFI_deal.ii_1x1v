@@ -1,6 +1,13 @@
+/*
+Todo: 
+- update Nx between timesteps to account for adaptivity changes because Vector rho needs to be resized
+ */
+
 #ifndef NUFI_SOLVER_HPP
 #define NUFI_SOLVER_HPP
 
+#include <cmath>
+#include <cstdlib>
 #include <deal.II/base/point.h>
 #include <deal.II/base/tensor.h>
 #include <deal.II/numerics/fe_field_function.h>
@@ -20,30 +27,28 @@ public:
   NuFISolver();
 
   void run();
-  double eval_rho(size_t n, double x, double u);
+  double eval_rho(unsigned int n, double x, unsigned int Nv = Parameters::NV);
 
 private:
 
-  void compute_density();
-  void solve_poisson();
-  void update_distribution();
+  double eval_ftilda(unsigned int n, double x, double u);
+  void solve_poisson(unsigned int n);
 
   double evaluate_E(double x);
-
-  PoissonProblem<1> poisson;
-
-  std::vector<double> coeffs;
+  
   std::vector<double> rho;
 
-  unsigned int Nt;
+  unsigned int Nt = std::floor(Parameters::TMAX/Parameters::DT);
   unsigned int Nx;
 
   double Lx = Parameters::LX;
 
   unsigned int order;
 
-  double dt;
-  size_t stride_t;
+  double dt = Parameters::DT;
+
+  PoissonProblem<1> poisson;
+
 };
 
 inline double NuFISolver::evaluate_E(double x)
@@ -75,59 +80,117 @@ inline double NuFISolver::evaluate_E(double x)
   return E_val;
 }
 
-inline double NuFISolver::eval_rho(size_t n,
+inline double NuFISolver::eval_ftilda(unsigned int n,
                                       double x,
                                       double u)
 {
-    if (n == 0)
-        return f0(x,u);
-   
-    double Ex;
+  double Lu = std::abs(Parameters::V_DOMAIN_LEFT - Parameters::V_DOMAIN_RIGHT);
 
-    // Initial half-step.
-    Ex = evaluate_E(x);
-    u += 0.5*dt*Ex;
+  if (n == 0)
+      return f0(x, u);
+ 
+  double Ex;
 
-    while ( --n )
-    {
-        x -= dt*u;
-        Ex = evaluate_E(x);
-        u += dt*Ex;
-    }
+  // Initial half-step.
+  Ex = evaluate_E(x);
+  u += 0.5*dt*Ex;
 
-    // Final half-step.
-    x -= dt*u;
-    Ex = evaluate_E(x);
-    u += 0.5*dt*Ex; // is this line useless ?
-    
-    double x_periodic = x - Lx * std::floor(x / Lx);
+  while ( --n )
+  {
+      x -= dt*u;
+      Ex = evaluate_E(x);
+      u += dt*Ex;
+  }
 
-    return compute_rho(x_periodic); // compute_rho (from fields.hpp) uses f0
+  // Final half-step.
+  x -= dt*u;
+  Ex = evaluate_E(x);
+  u += 0.5*dt*Ex; // is this line useless ?
+  
+  double x_periodic = x - Lx * std::floor(x / Lx);
+  double u_periodic = u - Lu * std::floor(u / Lu);
+
+  return f0(x_periodic, u_periodic);
+}
+
+inline double NuFISolver::eval_rho(const unsigned int n,
+                          const double x,
+                          const unsigned int Nv)
+{
+  const double dv = (Parameters::V_DOMAIN_RIGHT - Parameters::V_DOMAIN_LEFT) / Nv;
+
+  double integral = 0.0;
+
+  for (unsigned int i = 0; i < Nv; ++i)
+  {
+    const double v = Parameters::V_DOMAIN_LEFT + (i + 0.5) * dv;
+    integral += eval_ftilda(n, x, v) * dv;
+  }
+
+  return 1.0 - integral;
+}
+
+class ChargeDensity_NuFI : public Function<1>
+{
+public:
+  ChargeDensity_NuFI(NuFISolver &solver, size_t n)
+      : solver(solver), n(n) {}
+
+  virtual double value(const Point<1> &p,
+                       [[maybe_unused]] const unsigned int component = 0) const override
+  {
+      double x = p[0];
+
+      return solver.eval_rho(n, x); 
+      // u not used anymore
+  }
+
+private:
+  NuFISolver &solver;
+  size_t n;
+};
+
+
+inline void NuFISolver::solve_poisson(unsigned int n)
+{
+  ChargeDensity_NuFI rho_function(*this, n);
+
+  poisson.set_rhs_function(rho_function);
+
+  poisson.solve_step();
 }
 
 inline void NuFISolver::run()
 {
-    rho.resize(Nx, 0.0);               // initialize density array
+  std::cout << "Starting NuFI solver\n";
 
-    // Main time-stepping loop
-    for (size_t n = 0; n < Nt; ++n)
+  for (unsigned int n = 0; n < Nt; ++n)
+  {
+    std::cout << "Timestep " << n << " / " << Nt << std::endl;
+
+
+    double dx = Lx / Nx;
+
+    for (unsigned int i = 0; i < Nx; ++i)
     {
-
-        // Solve this logic! To use on deal.ii  
-
-        // 1. Compute charge density rho from current distribution
-        compute_density();
-
-        // 2. Solve Poisson's equation to update electric field
-        solve_poisson();
-
-        // 3. Update distribution function along characteristics
-        update_distribution();
-
-        // Optional: compute ftilda at current step if needed
-        // for demonstration: evaluate ftilda at midpoint x, u = 0
-        // double ft = eval_ftilda(n, 0.5 * poisson.get_Lx(), 0.0);
+      double x = (i + 0.5) * dx;
+      rho[i] = eval_rho(n, x);
     }
+
+    solve_poisson(n);
+  }
+
+  std::cout << "NuFI simulation finished.\n";
 }
 
+inline NuFISolver::NuFISolver()
+  : order(Parameters::FE_DEGREE),
+    poisson(order, Parameters::NV)
+{
+  poisson.initialize();
+
+  Nx = poisson.get_dof_handler().n_dofs();
+  rho.resize(Nx, 0.0);
+
+}
 #endif

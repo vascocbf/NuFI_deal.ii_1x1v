@@ -1,8 +1,4 @@
 #include <iostream>
-
-#include "parameters.hpp"
-#include "poisson_problem.hpp"
-
 #include "nufi_solver.hpp"
 
 int main()

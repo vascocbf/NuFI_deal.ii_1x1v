@@ -1,6 +1,7 @@
 #ifndef POISSON_PROBLEM_HPP
 #define POISSON_PROBLEM_HPP
 
+#include <deal.II/base/function.h>
 #include <fstream>
 
 #include <deal.II/base/quadrature_lib.h>
@@ -43,9 +44,13 @@ class PoissonProblem
 {
 public:
   PoissonProblem(unsigned int degree, unsigned int Nv);
+
+  void initialize();
+  void solve_step();
   void run();
 
   void set_Nv(unsigned int new_Nv);
+  void set_rhs_function(const Function<dim> &rhs);
 
   const Vector<double> &get_solution() const { return solution; }
   const DoFHandler<dim> &get_dof_handler() const { return dof_handler; }
@@ -69,6 +74,8 @@ private:
   Vector<double> solution;      // phi
   Vector<double> system_rhs;
 
+  const Function<dim> *rhs_function;
+
   MappingQ<dim> mapping;
 
   unsigned int Nv;
@@ -79,6 +86,12 @@ template <int dim>
 void PoissonProblem<dim>::set_Nv(unsigned int new_Nv)
 {
   Nv = new_Nv;
+}
+
+template <int dim>
+void PoissonProblem<dim>::set_rhs_function(const Function<dim> &rhs)
+{
+  rhs_function = &rhs;
 }
 
 template <int dim>
@@ -185,7 +198,7 @@ void PoissonProblem<dim>::assemble_system()
   Vector<double>     cell_rhs(dofs_per_cell);
   std::vector<types::global_dof_index> local_dof_indices(dofs_per_cell);
 
-  ChargeDensity<dim> rhs_function(Parameters::EPS, Parameters::WAVE_NR, Nv);
+  Assert(rhs_function != nullptr, ExcMessage("RHS function not set"));
 
   for (const auto &cell : dof_handler.active_cell_iterators())
   {
@@ -195,7 +208,7 @@ void PoissonProblem<dim>::assemble_system()
 
     for (unsigned int q = 0; q < n_q_points; ++q)
     {
-      const double rho = rhs_function.value(fe_values.quadrature_point(q));
+      const double rho = rhs_function->value(fe_values.quadrature_point(q));
 
       for (unsigned int i = 0; i < dofs_per_cell; ++i)
       {
@@ -286,7 +299,27 @@ void PoissonProblem<dim>::output_results() const
   data_out_E.write_vtk(out2);
 }
 
+template <int dim>
+void PoissonProblem<dim>::initialize()
+{
+  set_Nv(Parameters::NV);
 
+  create_mesh();      // build grid
+  setup_system();     // distribute DoFs and matrices
+}
+
+template <int dim>
+void PoissonProblem<dim>::solve_step()
+{
+  system_matrix = 0;
+  system_rhs = 0;
+
+  assemble_system();
+  solve();
+}
+
+
+// NuFI doesnt use this, kept only for testing. 
 template <int dim>
 void PoissonProblem<dim>::run()
 {
