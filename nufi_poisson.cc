@@ -3,15 +3,21 @@
 #include "parameters.hpp"
 #include "poisson_problem.hpp"
 
+#include "nufi_solver.hpp"
+
 int main()
 {
   try
   {
-    PoissonProblem<Parameters::DIMENSION> poisson_problem(Parameters::FE_DEGREE,
-                                                          Parameters::NV);
-
-    poisson_problem.run();
+    // PoissonProblem<Parameters::DIMENSION> poisson_problem(Parameters::FE_DEGREE,
+    //                                                       Parameters::NV);
+    //
+    // poisson_problem.run();
+    
+    NuFISolver solver;
+    solver.run();
   }
+
   catch (std::exception &exc)
   {
     std::cerr << std::endl

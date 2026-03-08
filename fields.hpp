@@ -20,6 +20,7 @@ inline double f0(const double x,
   return prefactor * gaussian;
 }
 
+
 inline double compute_rho(const double x,
                           const unsigned int Nv = Parameters::NV)
 {
@@ -37,7 +38,7 @@ inline double compute_rho(const double x,
 }
 
 template <int dim>
-class ChargeDensity : public Function<dim>
+class ChargeDensity : public Function<dim> // only uses f0
 {
 public:
   ChargeDensity(double eps,

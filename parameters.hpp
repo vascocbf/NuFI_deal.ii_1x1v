@@ -1,12 +1,14 @@
 #ifndef PARAMETERS_HPP
 #define PARAMETERS_HPP
 
+#include <cstdlib>
 namespace Parameters
 {
   constexpr unsigned int DIMENSION = 1;
 
   constexpr double X_DOMAIN_LEFT  = 0.0;
   constexpr double X_DOMAIN_RIGHT = 12.0;
+  constexpr double LX = std::abs(X_DOMAIN_RIGHT- X_DOMAIN_LEFT);
 
   constexpr double V_DOMAIN_LEFT = -6.0;
   constexpr double V_DOMAIN_RIGHT = 6.0;

@@ -2,7 +2,6 @@
 #define POISSON_PROBLEM_HPP
 
 #include <fstream>
-#include <iostream>
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/logstream.h>
@@ -47,6 +46,9 @@ public:
   void run();
 
   void set_Nv(unsigned int new_Nv);
+
+  const Vector<double> &get_solution() const { return solution; }
+  const DoFHandler<dim> &get_dof_handler() const { return dof_handler; }
 
 private:
   void create_mesh();
@@ -288,6 +290,7 @@ void PoissonProblem<dim>::output_results() const
 template <int dim>
 void PoissonProblem<dim>::run()
 {
+  set_Nv(Parameters::NV); // dont use anywhere else! Other functions still use Parameters::NV.
   create_mesh();
   setup_system();
   assemble_system();
