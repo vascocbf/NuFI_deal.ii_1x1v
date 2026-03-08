@@ -91,9 +91,11 @@ inline double NuFISolver::eval_ftilda(unsigned int n,
  
   double Ex;
 
+
   // Initial half-step.
   Ex = evaluate_E(x);
   u += 0.5*dt*Ex;
+
 
   while ( --n )
   {
@@ -106,7 +108,6 @@ inline double NuFISolver::eval_ftilda(unsigned int n,
   x -= dt*u;
   Ex = evaluate_E(x);
   u += 0.5*dt*Ex; // is this line useless ?
-  
   double x_periodic = x - Lx * std::floor(x / Lx);
   double u_periodic = u - Lu * std::floor(u / Lu);
 
@@ -120,7 +121,6 @@ inline double NuFISolver::eval_rho(const unsigned int n,
   const double dv = (Parameters::V_DOMAIN_RIGHT - Parameters::V_DOMAIN_LEFT) / Nv;
 
   double integral = 0.0;
-
   for (unsigned int i = 0; i < Nv; ++i)
   {
     const double v = Parameters::V_DOMAIN_LEFT + (i + 0.5) * dv;
@@ -170,13 +170,15 @@ inline void NuFISolver::run()
 
 
     double dx = Lx / Nx;
-
+    
+    std::cout << "Start of eval_rho step with Nx = "<< Nx<< "\n";
     for (unsigned int i = 0; i < Nx; ++i)
     {
       double x = (i + 0.5) * dx;
       rho[i] = eval_rho(n, x);
     }
-
+    std::cout << "End of eval_rho step\n";
+        
     solve_poisson(n);
   }
 
@@ -187,6 +189,7 @@ inline NuFISolver::NuFISolver()
   : order(Parameters::FE_DEGREE),
     poisson(order, Parameters::NV)
 {
+  std::cout << "Initializing Poisson\n";
   poisson.initialize();
 
   Nx = poisson.get_dof_handler().n_dofs();
