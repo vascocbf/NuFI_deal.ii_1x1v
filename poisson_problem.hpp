@@ -31,6 +31,9 @@
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/fe_field_function.h>
+
+#include <vector>
 
 #include "parameters.hpp"
 #include "fields.hpp"
@@ -43,17 +46,21 @@ template <int dim>
 class PoissonProblem
 {
 public:
-  PoissonProblem(unsigned int degree, unsigned int Nv);
+  PoissonProblem(unsigned int degree);
 
   void initialize();
   void solve_step();
   void run();
 
-  void set_Nv(unsigned int new_Nv);
   void set_rhs_function(const Function<dim> &rhs);
 
   const Vector<double> &get_solution() const { return solution; }
   const DoFHandler<dim> &get_dof_handler() const { return dof_handler; }
+
+  std::vector<double> sample_electric_field(const PoissonProblem<dim> &problem,  // sampling to save as spline
+                                            unsigned int Nx,
+                                            double x_min,
+                                            double x_max);
 
 private:
   void create_mesh();
@@ -77,16 +84,9 @@ private:
   const Function<dim> *rhs_function;
 
   MappingQ<dim> mapping;
-
-  unsigned int Nv;
 };
 
-
-template <int dim>
-void PoissonProblem<dim>::set_Nv(unsigned int new_Nv)
-{
-  Nv = new_Nv;
-}
+// Utilities
 
 template <int dim>
 void PoissonProblem<dim>::set_rhs_function(const Function<dim> &rhs)
@@ -95,16 +95,48 @@ void PoissonProblem<dim>::set_rhs_function(const Function<dim> &rhs)
 }
 
 template <int dim>
-PoissonProblem<dim>::PoissonProblem(unsigned int degree, unsigned int Nv)
+PoissonProblem<dim>::PoissonProblem(unsigned int degree)
   : fe(degree)
   , dof_handler(triangulation)
   , mapping(degree)
-  , Nv(Nv)
 {}
 
+template <int dim>
+std::vector<double> PoissonProblem<dim>::sample_electric_field(
+    const PoissonProblem<dim> &problem,
+    unsigned int Nx,
+    double x_min,
+    double x_max)
+{
 
-// =-=-=-=-= Make Grid =-=-=-=-=
+    const auto &dof_handler = problem.get_dof_handler();
+    const auto &solution = problem.get_solution();
 
+    Functions::FEFieldFunction<dim, Vector<double>>
+      field_function(dof_handler, solution, mapping);
+
+    std::vector<double> values(Nx);
+
+    double Lx = x_max - x_min;
+    double dx = Lx / Nx;
+
+    for (unsigned int i = 0; i < Nx; ++i)
+    {
+        double x = x_min + i * dx;
+
+        Point<dim> p;
+        p[0] = x;
+
+        Tensor<1, dim> grad = field_function.gradient(p);
+
+        values[i] = -grad[0];  // E = -dφ/dx
+    }
+
+    return values;
+}
+
+// dealii Poisson
+ 
 template<int dim>
 void PoissonProblem<dim>::create_mesh()
 {
@@ -273,7 +305,7 @@ void PoissonProblem<dim>::output_results() const
     x_coordinate[i] = support_points[i][0];  // x-component in 1D
                                              
   //---- Output density ----
-  ChargeDensity<dim> rho(Parameters::EPS, Parameters::WAVE_NR, Nv);
+  ChargeDensity<dim> rho(Parameters::EPS, Parameters::WAVE_NR, Parameters::NV);
 
   DataOut<dim> data_out_rho;
   data_out_rho.attach_dof_handler(dof_handler);
@@ -309,8 +341,6 @@ void PoissonProblem<dim>::output_results() const
 template <int dim>
 void PoissonProblem<dim>::initialize()
 {
-  set_Nv(Parameters::NV);
-
   create_mesh();      // build grid
   setup_system();     // distribute DoFs and matrices
 }
@@ -320,7 +350,6 @@ void PoissonProblem<dim>::solve_step()
 {
   system_matrix = 0;
   system_rhs = 0;
-  std::cout << "Calling PoissonProblem::solve_step()\n";
   assemble_system();
   solve();
 }
@@ -330,7 +359,6 @@ void PoissonProblem<dim>::solve_step()
 template <int dim>
 void PoissonProblem<dim>::run()
 {
-  set_Nv(Parameters::NV); // dont use anywhere else! Other functions still use Parameters::NV.
   create_mesh();
   setup_system();
   assemble_system();

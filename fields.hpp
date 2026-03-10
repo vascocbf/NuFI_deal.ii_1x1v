@@ -33,6 +33,7 @@ inline double compute_rho(const double x,
     const double v = Parameters::V_DOMAIN_LEFT + (i + 0.5) * dv;
     integral += f0(x, v) * dv;
   }
+
   return 1.0 - integral;
 }
 

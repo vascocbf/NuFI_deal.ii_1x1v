@@ -5,6 +5,9 @@ int main()
 {
   try
   {
+
+    //Used in the past to test the basic poisson problem
+    //
     // PoissonProblem<Parameters::DIMENSION> poisson_problem(Parameters::FE_DEGREE,
     //                                                       Parameters::NV);
     //

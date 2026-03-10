@@ -21,8 +21,12 @@ namespace Parameters
   constexpr double EPS = 0.01;
   constexpr double WAVE_NR = 0.5;
 
+  // NUFI options
   constexpr double DT=0.05;
-  constexpr unsigned int TMAX = 10;
+  constexpr unsigned int TMAX = 2;
+
+  //spline options
+  constexpr int SPLINE_NX = 256;
 }
 
 #endif
