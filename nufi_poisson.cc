@@ -1,10 +1,24 @@
 #include <iostream>
+#include <filesystem>
 #include "nufi_solver.hpp"
 
 int main()
 {
   try
   {
+    // Delete all files in results/ directory
+        std::string results_dir = "results";
+        if (std::filesystem::exists(results_dir) && std::filesystem::is_directory(results_dir))
+        {
+            for (const auto& entry : std::filesystem::directory_iterator(results_dir))
+            {
+                if (std::filesystem::is_regular_file(entry.path()))
+                {
+                  std::filesystem::remove(entry.path());
+                    std::cout << "Deleted: " << entry.path() << "\n";
+                }
+            }
+        }
 
     //Used in the past to test the basic poisson problem
     //

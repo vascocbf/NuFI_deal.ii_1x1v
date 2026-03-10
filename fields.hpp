@@ -12,10 +12,8 @@ inline double f0(const double x,
                  const double eps = Parameters::EPS,
                  const double k   = Parameters::WAVE_NR)
 {
-  const double prefactor = (1.0 + eps * std::cos(k*x));
-  const double gaussian  =
-      (v*v / std::sqrt(2.0 * M_PI)) *
-      std::exp(-0.5 * v*v);
+  const double prefactor = Parameters::F0_FACTOR * (1.0 + eps * std::cos(k*x));
+  const double gaussian  = v*v  * std::exp(-0.5 * v*v);
 
   return prefactor * gaussian;
 }

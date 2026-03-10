@@ -33,6 +33,7 @@
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/fe_field_function.h>
 
+#include <string>
 #include <vector>
 
 #include "parameters.hpp"
@@ -61,13 +62,14 @@ public:
                                             unsigned int Nx,
                                             double x_min,
                                             double x_max);
+  void output_results(unsigned int n);
+
 
 private:
   void create_mesh();
   void setup_system();
   void assemble_system();
   void solve();
-  void output_results() const;
 
   Triangulation<dim> triangulation;
   FE_Q<dim>          fe;
@@ -289,7 +291,7 @@ void PoissonProblem<dim>::solve()
 
 
 template <int dim>
-void PoissonProblem<dim>::output_results() const
+void PoissonProblem<dim>::output_results(unsigned int n)
 {
 
   // --- extract DoF coordinates ---
@@ -318,7 +320,7 @@ void PoissonProblem<dim>::output_results() const
 
   data_out_rho.build_patches();
 
-  std::ofstream out1("density.vtk");
+  std::ofstream out1("results/density_" + std::to_string(n) + ".vtk");
   data_out_rho.write_vtk(out1);
 
   //---- Output electric field & potential ----
@@ -334,7 +336,7 @@ void PoissonProblem<dim>::output_results() const
 
   data_out_E.build_patches();
 
-  std::ofstream out2("electric_field.vtk");
+  std::ofstream out2("results/electric_field_"+ std::to_string(n)+".vtk");
   data_out_E.write_vtk(out2);
 }
 
@@ -355,7 +357,7 @@ void PoissonProblem<dim>::solve_step()
 }
 
 
-// NuFI doesnt use this, kept only for testing. 
+// NuFI doesnt use this, kept only for testing PoissonProblem
 template <int dim>
 void PoissonProblem<dim>::run()
 {

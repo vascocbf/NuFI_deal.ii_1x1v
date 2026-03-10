@@ -30,12 +30,12 @@ private:
 
   double eval_ftilda(unsigned int n, double x, double u, const UniformSpline1D<double, 4>& E_spline);
 
-  std::vector<double> rho;
-
   unsigned int Nt = std::floor(Parameters::TMAX/Parameters::DT);
   unsigned int Nx = Parameters::SPLINE_NX;
 
   double Lx = Parameters::LX;
+
+  std::vector<double> rho;
 
   unsigned int order;
 
@@ -140,7 +140,9 @@ inline void NuFISolver::run()
 
       // Step 1: Evaluate rho^n(x) using current E_spline
       std::cout << "Start of eval_rho loop\n";
-      std::vector<double> rho(Nx);
+
+      rho.resize(Nx);
+
       for (unsigned int i = 0; i < (Nx); ++i)
       {
           double x = (i + 0.5) * dx;
@@ -159,10 +161,10 @@ inline void NuFISolver::run()
 
       poisson.solve_step();
 
+      poisson.output_results(it);
 
       E_grid = poisson.sample_electric_field(poisson, Nx, 0.0, Lx);
 
-      // Step 4: Build spline for E^{n+1} (used in next time step)
       E_spline = UniformSpline1D<double, 4>(E_grid, 0.0, Lx);
   }
 
@@ -175,9 +177,5 @@ inline NuFISolver::NuFISolver()
 {
   std::cout << "Initializing Poisson\n";
   poisson.initialize();
-
-  Nx = poisson.get_dof_handler().n_dofs();
-  rho.resize(Nx, 0.0);
-
 }
 #endif
