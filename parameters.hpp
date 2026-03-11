@@ -28,10 +28,11 @@ namespace Parameters
   constexpr unsigned int TMAX = 10;
 
   //spline options
-  constexpr int SPLINE_NX = 256;
+  constexpr int SPLINE_NX = 512;
+  constexpr double SPLINE_DX = LX/SPLINE_NX;
 
   //Plotting options
-  constexpr int PLOT_FREQUENCY = 3;
+  constexpr int PLOT_FREQUENCY = 2;
 }
 
 #endif

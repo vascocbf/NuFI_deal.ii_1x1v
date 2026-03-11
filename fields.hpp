@@ -35,6 +35,115 @@ inline double compute_rho(const double x,
   return 1.0 - integral;
 }
 
+
+template <typename real, size_t order, size_t dx = 0>
+real eval( real x, const real *coeffs) noexcept
+{
+    using std::floor;
+
+    // Shift to a box that starts at 0.
+    x -= Parameters::X_DOMAIN_LEFT;
+
+    // Get "periodic position" in box at origin.
+    x = x - Parameters::LX * floor( x/Parameters::LX ); 
+
+    // Knot number
+    real x_knot = floor( x/Parameters::SPLINE_DX); 
+
+    size_t ii = static_cast<size_t>(x_knot);
+
+    // Convert x to reference coordinates.
+    x = x/Parameters::SPLINE_DX - x_knot;
+
+    // Scale according to derivative.
+    real factor = 1;
+    for ( size_t i = 0; i < dx; ++i ) factor *= 1/Parameters::SPLINE_DX;
+
+    return factor*splines1d::eval<real,order,dx>( x, coeffs + ii );
+}
+
+template <typename real, size_t order>
+void interpolate( real *coeffs, const real *values) // Least Squares needs to be made
+{
+    std::unique_ptr<real[]> tmp { new real[ Parameters::SPLINE_NX ] };
+
+    for ( size_t i = 0; i < Parameters::SPLINE_NX; ++i )
+        tmp[ i ] = coeffs[ i ];
+
+    struct mat_t // STRUCT AND CONFIG NEEDS TO BE REVIEWED 
+    {
+        const config_t<real> &config;
+        real  N[ order ];
+
+        mat_t( const config_t<real> &conf ): config { conf }
+        {
+            splines1d::N<real,order>(0,N);
+        }
+
+        void operator()( const real *in, real *out ) const
+        {
+            #pragma omp parallel for 
+            for ( size_t i = 0; i < Parameters::SPLINE_NX; ++i )
+            {
+                real result = 0;
+                if ( i + order <= Parameters::SPLINE_NX )
+                {
+                    for ( size_t ii = 0; ii < order; ++ii )
+                        result += N[ii] * in[ i + ii ];
+                }
+                else
+                {
+                    for ( size_t ii = 0; ii < order; ++ii )
+                        result += N[ii]*in[ (i+ii) % Parameters::SPLINE_NX];
+                }
+                out[ i ] = result;
+            }
+        }
+    };
+
+    struct transposed_mat_t // STRUCT AND CONFIG NEEDS TO BE REVIEWED 
+    {
+        const config_t<real> &config;
+        real  N[ order ];
+
+        transposed_mat_t( const config_t<real> &conf ): config { conf }
+        {
+            splines1d::N<real,order>(0,N);
+        }
+
+        void operator()( const real *in, real *out ) const
+        {
+            for ( size_t i = 0; i < Parameters::SPLINE_NX; ++i )
+                out[ i ] = 0;
+
+            for ( size_t i = 0; i < Parameters::SPLINE_NX; ++i )
+            {
+                if ( i + order <= Parameters::SPLINE_NX )
+                {
+                    for ( size_t ii = 0; ii < order; ++ii )
+                        out[ i + ii ]  += N[ii] * in[ i ];
+                }
+                else
+                {
+                    for ( size_t ii = 0; ii < order; ++ii )
+                        out[ (i+ii) % Parameters::SPLINE_NX ] += N[ii]*in[ i ];
+                }
+            }
+        }
+    };
+
+    mat_t M { config }; transposed_mat_t Mt { config };
+    lsmr_options<real> opt; opt.silent = true;
+    lsmr( config.Nx, config.Nx, M, Mt, values, tmp.get(), opt );
+
+    if ( opt.iter == opt.max_iter )
+        std::cerr << "Warning. LSMR did not converge.\n";
+
+    for ( size_t i = 0; i < Parameters::SPLINE_NX + order - 1; ++i )
+        coeffs[ i ] = tmp[ i % Parameters::SPLINE_NX ];
+}
+
+
 template <int dim>
 class ChargeDensity : public Function<dim> // only uses f0
 {

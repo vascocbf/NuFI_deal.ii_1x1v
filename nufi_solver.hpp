@@ -15,7 +15,8 @@
 #include "parameters.hpp"
 #include "poisson_problem.hpp"
 #include "fields.hpp" // holds f0(x,v), and compute_rho(x)
-#include "spline_field.hpp"
+#include "spline_field.hpp" // old GPT splines
+#include "splines.hpp"    //new splines                       
 
 using namespace dealii;
 
@@ -25,9 +26,9 @@ public:
   NuFISolver();
 
   void run();
-  double eval_rho(unsigned int n, double x, const UniformSpline1D<double,4>& E_spline, unsigned int Nv = Parameters::NV);
-  double eval_ftilda(unsigned int n, double x, double u, const UniformSpline1D<double, 4>& E_spline);
-  void save_ftilda(unsigned int n, const UniformSpline1D<double,4>& E_spline, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
+  double eval_rho(unsigned int n, double x, const std::vector<double> E_coeffs, unsigned int Nv = Parameters::NV);
+  double eval_ftilda(unsigned int n, double x, double u, const std::vector<double> E_coeffs);
+  void save_ftilda(unsigned int n, const std::vector<double> E_coeffs, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
 
 private:
 
@@ -50,7 +51,7 @@ private:
 inline double NuFISolver::eval_ftilda(unsigned int n,
                                       double x,
                                       double u,
-                                      const UniformSpline1D<double, 4>& E_spline)
+                                      const std::vector<double> E_coeffs)
 {
   double Lu = std::abs(Parameters::V_DOMAIN_LEFT - Parameters::V_DOMAIN_RIGHT);
 
@@ -78,7 +79,7 @@ inline double NuFISolver::eval_ftilda(unsigned int n,
 
 inline double NuFISolver::eval_rho(const unsigned int n,
                           const double x,
-                          const UniformSpline1D<double, 4>& E_spline,
+                          const std::vector<double> E_coeffs,
                           const unsigned int Nv)
 {
   const double dv = (Parameters::V_DOMAIN_RIGHT - Parameters::V_DOMAIN_LEFT) / Nv;
@@ -97,25 +98,25 @@ inline double NuFISolver::eval_rho(const unsigned int n,
 class ChargeDensity_NuFI : public Function<1>
 {
 public:
-  ChargeDensity_NuFI(NuFISolver &solver, size_t n, const UniformSpline1D<double,4> &E_spline)
-      : solver(solver), n(n), E_spline(E_spline) {}
+  ChargeDensity_NuFI(NuFISolver &solver, size_t n, const std::vector<double> E_coeffs)
+      : solver(solver), n(n), E_coeffs(E_coeffs) {}
 
   virtual double value(const Point<1> &p,
                        [[maybe_unused]] const unsigned int component = 0) const override
   {
       double x = p[0];
 
-      return solver.eval_rho(n, x, E_spline); 
+      return solver.eval_rho(n, x, E_coeffs); 
   }
 
 private:
   NuFISolver &solver;
   size_t n;
-  const UniformSpline1D<double, 4> &E_spline;
+  const std::vector<double> E_coeffs;
 };
 
 inline void NuFISolver::save_ftilda(unsigned int n,
-                                    const UniformSpline1D<double,4>& E_spline,
+                                    const std::vector<double> E_coeffs,
                                     unsigned int Nx_out,
                                     unsigned int Nv_out,
                                     const std::string &filename)
@@ -176,7 +177,7 @@ inline void NuFISolver::run()
     E_grid[i] = 0; 
   }
 
-  UniformSpline1D<double,4> E_spline(E_grid, Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT);
+  std::vector<double> E_coeffs(E_grid, Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT); // Needs correction
 
   for (unsigned int it = 0; it < Nt; ++it)
   {
@@ -212,7 +213,7 @@ inline void NuFISolver::run()
 
       E_grid = poisson.sample_electric_field(poisson, Nx, 0.0, Lx);
 
-      E_spline = UniformSpline1D<double, 4>(E_grid, 0.0, Lx);
+      E_spline = std::vector<double> E_coeffs; // needs correction 
   }
 
   std::cout << "NuFI simulation finished.\n";
