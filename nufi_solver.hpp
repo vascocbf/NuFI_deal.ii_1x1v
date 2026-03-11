@@ -8,6 +8,7 @@
 #include <deal.II/numerics/fe_field_function.h>
 
 #include <iostream>
+#include <ostream>
 #include <vector>
 #include <cstddef>
 
@@ -25,13 +26,14 @@ public:
 
   void run();
   double eval_rho(unsigned int n, double x, const UniformSpline1D<double,4>& E_spline, unsigned int Nv = Parameters::NV);
+  double eval_ftilda(unsigned int n, double x, double u, const UniformSpline1D<double, 4>& E_spline);
+  void save_ftilda(unsigned int n, const UniformSpline1D<double,4>& E_spline, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
 
 private:
 
-  double eval_ftilda(unsigned int n, double x, double u, const UniformSpline1D<double, 4>& E_spline);
 
   unsigned int Nt = std::floor(Parameters::TMAX/Parameters::DT);
-  unsigned int Nx = Parameters::SPLINE_NX;
+  [[maybe_unused]] unsigned int Nx = Parameters::SPLINE_NX;
 
   double Lx = Parameters::LX;
 
@@ -112,10 +114,52 @@ private:
   const UniformSpline1D<double, 4> &E_spline;
 };
 
+inline void NuFISolver::save_ftilda(unsigned int n,
+                                    const UniformSpline1D<double,4>& E_spline,
+                                    unsigned int Nx_out,
+                                    unsigned int Nv_out,
+                                    const std::string &filename)
+{
+  std::ofstream file(filename);
+
+  double xmin = Parameters::X_DOMAIN_LEFT;
+  double xmax = Parameters::X_DOMAIN_RIGHT;
+
+  double vmin = Parameters::V_DOMAIN_LEFT;
+  double vmax = Parameters::V_DOMAIN_RIGHT;
+
+  double dx = (xmax - xmin) / Nx_out;
+  double dv = (vmax - vmin) / Nv_out;
+
+  file << Nx_out << " " << Nv_out << "\n";
+  file << xmin << " " << xmax << "\n";
+  file << vmin << " " << vmax << "\n";
+
+  for (unsigned int i = 0; i < Nx_out; ++i)
+  {
+      double x = xmin + (i + 0.5)*dx;
+
+      for (unsigned int j = 0; j < Nv_out; ++j)
+      {
+          double v = vmin + (j + 0.5)*dv;
+
+          double val = eval_ftilda(n, x, v, E_spline);
+
+          file << val;
+
+          if (j < Nv_out - 1)
+              file << " ";
+      }
+
+      file << "\n";
+  }
+
+  file.close();
+}
 
 inline void NuFISolver::run()
 {
-  std::cout << "Start of NuFISolver::run()\n";
+  std::cout << "Start of NuFISolver::run()\n\n";
   
   // init E_spline
 
@@ -129,17 +173,16 @@ inline void NuFISolver::run()
   for (unsigned int i=0; i<Nx; ++i)
   {
     [[maybe_unused]] double x = Parameters::X_DOMAIN_LEFT + i*dx;
-    E_grid[i] = 1; 
+    E_grid[i] = 0; 
   }
 
   UniformSpline1D<double,4> E_spline(E_grid, Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT);
 
   for (unsigned int it = 0; it < Nt; ++it)
   {
-      std::cout << "Timestep " << it << " / " << Nt << std::endl;
+      std::cout << "Timestep " << it << " / " << Nt << std::endl << std::endl;
 
       // Step 1: Evaluate rho^n(x) using current E_spline
-      std::cout << "Start of eval_rho loop\n";
 
       rho.resize(Nx);
 
@@ -148,7 +191,6 @@ inline void NuFISolver::run()
           double x = (i + 0.5) * dx;
           rho[i] = eval_rho(it, x, E_spline, Parameters::NV);
       }
-      std::cout << "End of eval_rho loop\n";
 
       ChargeDensity_NuFI rho_function(*this, it, E_spline);
 
@@ -161,7 +203,12 @@ inline void NuFISolver::run()
 
       poisson.solve_step();
 
-      poisson.output_results(it);
+      if (it % Parameters::PLOT_FREQUENCY == 0)
+      {
+        std::cout << "Saving results... \n\n";
+        save_ftilda(it, E_spline, 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
+        poisson.output_results(it);
+      }
 
       E_grid = poisson.sample_electric_field(poisson, Nx, 0.0, Lx);
 
@@ -175,7 +222,7 @@ inline NuFISolver::NuFISolver()
   : order(Parameters::FE_DEGREE),
     poisson(order)
 {
-  std::cout << "Initializing Poisson\n";
+  std::cout << "Initializing dealii Poisson Solver\n";
   poisson.initialize();
 }
 #endif

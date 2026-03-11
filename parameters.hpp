@@ -29,6 +29,9 @@ namespace Parameters
 
   //spline options
   constexpr int SPLINE_NX = 256;
+
+  //Plotting options
+  constexpr int PLOT_FREQUENCY = 3;
 }
 
 #endif

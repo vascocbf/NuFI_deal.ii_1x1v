@@ -96,8 +96,6 @@ private:
 
     void interpolate(const std::vector<Real>& values)
     {
-
-      std::cout << "interpolating";
         size_t N = config.Nx;
 
         std::vector<Real> rhs(values);

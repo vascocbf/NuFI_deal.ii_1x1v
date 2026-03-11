@@ -143,7 +143,6 @@ template<int dim>
 void PoissonProblem<dim>::create_mesh()
 {
 
-  std::cout << "Creating Mesh\n";
   GridGenerator::hyper_cube(triangulation,
                             Parameters::X_DOMAIN_LEFT,
                             Parameters::X_DOMAIN_RIGHT);
@@ -169,7 +168,6 @@ template <int dim>
 void PoissonProblem<dim>::setup_system()
 {
 
-  std::cout << "Setting up Poisson system\n";
   dof_handler.distribute_dofs(fe);
 
   constraints.clear();
@@ -222,7 +220,6 @@ public:
 template <int dim>
 void PoissonProblem<dim>::assemble_system()
 {
-  std::cout << "Assembling Poisson System\n";
   QGauss<dim>  quadrature_formula(fe.degree + 1);
   FEValues<dim> fe_values(fe, quadrature_formula,
                           update_values |
@@ -278,7 +275,6 @@ template <int dim>
 void PoissonProblem<dim>::solve()
 {
 
-  std::cout << "Calling PoissonProblem::solve()\n";
   SolverControl            solver_control(1000, 1e-12);
   SolverCG<Vector<double>> solver(solver_control);
 
