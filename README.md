@@ -7,6 +7,4 @@ This simulation of the Vlasov-Poisson system in 1x1v dimensions uses
 --- 
 Todo:
 - Correct dealii solver, check ftilda results to see whats happening
-    - implement least squares thingy
-    - marry it to fields interpolation
-    - make nufi solver use new spline interpolation and evaluation
+    - marry fields.hpp to new splines
