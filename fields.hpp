@@ -4,6 +4,8 @@
 #include <cmath>
 #include <deal.II/base/function.h>
 #include "parameters.hpp"
+#include "splines.hpp"
+#include "lsmr.hpp"
 
 using namespace dealii;
 
@@ -36,8 +38,8 @@ inline double compute_rho(const double x,
 }
 
 
-template <typename real, size_t order, size_t dx = 0>
-real eval( real x, const real *coeffs) noexcept
+template <size_t dx = 0>
+double eval(double x, const double *coeffs) noexcept
 {
     using std::floor;
 
@@ -48,7 +50,7 @@ real eval( real x, const real *coeffs) noexcept
     x = x - Parameters::LX * floor( x/Parameters::LX ); 
 
     // Knot number
-    real x_knot = floor( x/Parameters::SPLINE_DX); 
+    double x_knot = floor( x/Parameters::SPLINE_DX); 
 
     size_t ii = static_cast<size_t>(x_knot);
 
@@ -56,10 +58,10 @@ real eval( real x, const real *coeffs) noexcept
     x = x/Parameters::SPLINE_DX - x_knot;
 
     // Scale according to derivative.
-    real factor = 1;
+    double factor = 1;
     for ( size_t i = 0; i < dx; ++i ) factor *= 1/Parameters::SPLINE_DX;
 
-    return factor*splines1d::eval<real,order,dx>( x, coeffs + ii );
+    return factor*splines1d::eval<double,Parameters::SPLINE_ORDER,dx>(x, coeffs + ii);
 }
 
 template <typename real, size_t order>
@@ -72,17 +74,15 @@ void interpolate( real *coeffs, const real *values) // Least Squares needs to be
 
     struct mat_t // STRUCT AND CONFIG NEEDS TO BE REVIEWED 
     {
-        const config_t<real> &config;
         real  N[ order ];
 
-        mat_t( const config_t<real> &conf ): config { conf }
+        mat_t()
         {
             splines1d::N<real,order>(0,N);
         }
 
         void operator()( const real *in, real *out ) const
         {
-            #pragma omp parallel for 
             for ( size_t i = 0; i < Parameters::SPLINE_NX; ++i )
             {
                 real result = 0;
@@ -103,10 +103,9 @@ void interpolate( real *coeffs, const real *values) // Least Squares needs to be
 
     struct transposed_mat_t // STRUCT AND CONFIG NEEDS TO BE REVIEWED 
     {
-        const config_t<real> &config;
         real  N[ order ];
 
-        transposed_mat_t( const config_t<real> &conf ): config { conf }
+        transposed_mat_t()
         {
             splines1d::N<real,order>(0,N);
         }
@@ -132,9 +131,9 @@ void interpolate( real *coeffs, const real *values) // Least Squares needs to be
         }
     };
 
-    mat_t M { config }; transposed_mat_t Mt { config };
+    mat_t M; transposed_mat_t Mt;
     lsmr_options<real> opt; opt.silent = true;
-    lsmr( config.Nx, config.Nx, M, Mt, values, tmp.get(), opt );
+    lsmr( Parameters::SPLINE_NX, Parameters::SPLINE_NX , M, Mt, values, tmp.get(), opt );
 
     if ( opt.iter == opt.max_iter )
         std::cerr << "Warning. LSMR did not converge.\n";

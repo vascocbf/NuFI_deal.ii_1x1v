@@ -3,6 +3,7 @@
 
 #include <cmath>
 #include <cstdlib>
+
 namespace Parameters
 {
   constexpr unsigned int DIMENSION = 1;
@@ -27,9 +28,11 @@ namespace Parameters
   constexpr double DT=1./16.;
   constexpr unsigned int TMAX = 10;
 
+
   //spline options
   constexpr int SPLINE_NX = 512;
   constexpr double SPLINE_DX = LX/SPLINE_NX;
+  constexpr size_t SPLINE_ORDER = 4;
 
   //Plotting options
   constexpr int PLOT_FREQUENCY = 2;

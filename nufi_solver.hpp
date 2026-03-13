@@ -8,15 +8,14 @@
 #include <deal.II/numerics/fe_field_function.h>
 
 #include <iostream>
+#include <memory>
 #include <ostream>
 #include <vector>
 #include <cstddef>
 
 #include "parameters.hpp"
 #include "poisson_problem.hpp"
-#include "fields.hpp" // holds f0(x,v), and compute_rho(x)
-#include "spline_field.hpp" // old GPT splines
-#include "splines.hpp"    //new splines                       
+#include "fields.hpp"
 
 using namespace dealii;
 
@@ -26,23 +25,21 @@ public:
   NuFISolver();
 
   void run();
-  double eval_rho(unsigned int n, double x, const std::vector<double> E_coeffs, unsigned int Nv = Parameters::NV);
-  double eval_ftilda(unsigned int n, double x, double u, const std::vector<double> E_coeffs);
-  void save_ftilda(unsigned int n, const std::vector<double> E_coeffs, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
+  double eval_rho(unsigned int n, double x, const double *E_coeffs, unsigned int Nv = Parameters::NV);
+  double eval_ftilda(unsigned int n, double x, double u, const double *E_coeffs);
+  void save_ftilda(unsigned int n, const double *E_coeffs, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
 
 private:
 
 
   unsigned int Nt = std::floor(Parameters::TMAX/Parameters::DT);
-  [[maybe_unused]] unsigned int Nx = Parameters::SPLINE_NX;
+  unsigned int Nx = Parameters::SPLINE_NX;
 
   double Lx = Parameters::LX;
 
   std::vector<double> rho;
 
   unsigned int order;
-
-  double dt = Parameters::DT;
 
   PoissonProblem<1> poisson;
 
@@ -51,72 +48,82 @@ private:
 inline double NuFISolver::eval_ftilda(unsigned int n,
                                       double x,
                                       double u,
-                                      const std::vector<double> E_coeffs)
+                                      const double *E_coeffs)
+
 {
-  double Lu = std::abs(Parameters::V_DOMAIN_LEFT - Parameters::V_DOMAIN_RIGHT);
+  if ( n == 0 ) return f0(x,u);
 
-  if (n == 0)
-      return f0(x, u);
+  const size_t stride_x = 1;
+  const size_t stride_t = stride_x*(Parameters::SPLINE_NX + Parameters::SPLINE_ORDER - 1);
 
-  // Initial half-step.
-  u += 0.5*dt*E_spline.eval(x);
+  double Ex;
+  const double *c;
+
+  // We omit the initial half-step.
 
   while ( --n )
   {
-      x -= dt*u;
-      u += dt*E_spline.eval(x);
+      x  = x - Parameters::DT *u;
+      c  = E_coeffs + n*stride_t;
+      Ex = -eval<1>(x, c);
+      u  = u + Parameters::DT *Ex;
   }
 
-  // Final half-step.
-  x -= dt*u;
-  u += 0.5*dt*E_spline.eval(x);
+  // The final half-step.
+  x -= Parameters::DT*u;
+  c  = E_coeffs + n*stride_t;
+  Ex = -eval<1>(x, c);
+  u += 0.5*Parameters::DT*Ex;
 
-  double x_periodic = x - Lx * std::floor(x / Lx);
-  double u_periodic = u - Lu * std::floor(u / Lu);
-
-  return f0(x_periodic, u_periodic);
+  return f0(x,u);
 }
 
 inline double NuFISolver::eval_rho(const unsigned int n,
                           const double x,
-                          const std::vector<double> E_coeffs,
+                          const double *E_coeffs,
                           const unsigned int Nv)
 {
   const double dv = (Parameters::V_DOMAIN_RIGHT - Parameters::V_DOMAIN_LEFT) / Nv;
+  const double v_min = Parameters::V_DOMAIN_LEFT;
 
   double integral = 0.0;
   for (unsigned int i = 0; i < Nv; ++i)
-  {
-    const double v = Parameters::V_DOMAIN_LEFT + (i + 0.5) * dv;
-    AssertThrow(std::isfinite(E_spline.eval(x)), ExcMessage("NaN detected in E_spline.eval(x) inside NuFISolver::eval_rho integral loop"));
-    integral += eval_ftilda(n, x, v, E_spline) * dv;
-  }
+    integral += eval_ftilda(n, x, v_min + i * dv, E_coeffs) * dv;
   
   return 1.0 - integral;
 }
 
-class ChargeDensity_NuFI : public Function<1>
+template<unsigned int dim>
+class ChargeDensity_NuFI : public Function<dim>
 {
-public:
-  ChargeDensity_NuFI(NuFISolver &solver, size_t n, const std::vector<double> E_coeffs)
-      : solver(solver), n(n), E_coeffs(E_coeffs) {}
+  public:
+    ChargeDensity_NuFI(const double *rho_values, unsigned int Nx)
+      : Function<dim>(), rho(rho_values), Nx(Nx) {}
 
-  virtual double value(const Point<1> &p,
-                       [[maybe_unused]] const unsigned int component = 0) const override
-  {
-      double x = p[0];
+    virtual double value(const Point<dim> &p,
+                         [[maybe_unused]] const unsigned int component = 0) const override
+    {
+      const double x = p[0];
 
-      return solver.eval_rho(n, x, E_coeffs); 
-  }
+      // Map x -> grid index
+      const double L = Parameters::LX;
+      const double dx = L / (Nx-1);
 
-private:
-  NuFISolver &solver;
-  size_t n;
-  const std::vector<double> E_coeffs;
+      int i = static_cast<int>(std::floor((x - Parameters::X_DOMAIN_LEFT) / dx));
+
+      // periodic wrap
+      i = (i % Nx + Nx) % Nx;
+
+      return rho[i];
+    }
+
+  private:
+    const double *rho;
+    const unsigned int Nx;
 };
 
 inline void NuFISolver::save_ftilda(unsigned int n,
-                                    const std::vector<double> E_coeffs,
+                                    const double *E_coeffs,
                                     unsigned int Nx_out,
                                     unsigned int Nv_out,
                                     const std::string &filename)
@@ -144,7 +151,7 @@ inline void NuFISolver::save_ftilda(unsigned int n,
       {
           double v = vmin + (j + 0.5)*dv;
 
-          double val = eval_ftilda(n, x, v, E_spline);
+          double val = eval_ftilda(n, x, v, E_coeffs);
 
           file << val;
 
@@ -160,60 +167,39 @@ inline void NuFISolver::save_ftilda(unsigned int n,
 
 inline void NuFISolver::run()
 {
-  std::cout << "Start of NuFISolver::run()\n\n";
-  
-  // init E_spline
+  std::cout << "Building E_sline\n\n";
 
-  unsigned int Nx = Parameters::SPLINE_NX;
-  // Nx grid points
-  double dx = Lx / (Nx-1);
+  using std::abs;
+  using std::max;
 
-  std::vector<double> E_grid(Nx);
+  const size_t stride_t = Nx + order - 1;
 
-  //set initial E points
-  for (unsigned int i=0; i<Nx; ++i)
-  {
-    [[maybe_unused]] double x = Parameters::X_DOMAIN_LEFT + i*dx;
-    E_grid[i] = 0; 
-  }
+  std::unique_ptr<double[]> coeffs { new double[ Nt*stride_t ] {} };
+  std::unique_ptr<double,decltype(std::free)*> rho { reinterpret_cast<double*>(std::aligned_alloc(64,sizeof(double)*Nx)), std::free };
 
-  std::vector<double> E_coeffs(E_grid, Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT); // Needs correction
+  if ( rho == nullptr ) throw std::bad_alloc {};
 
   for (unsigned int it = 0; it < Nt; ++it)
   {
       std::cout << "Timestep " << it << " / " << Nt << std::endl << std::endl;
 
-      // Step 1: Evaluate rho^n(x) using current E_spline
+      // compute rho
+    	for(size_t i = 0; i<Nx; i++)
+    	{
+        double ith_rho = eval_rho(it, i, coeffs.get(), Parameters::NV); 
+        AssertThrow(std::isfinite(ith_rho), ExcMessage("NaN detected in rho"));
+    		rho.get()[i] =  ith_rho;
+    	}
 
-      rho.resize(Nx);
-
-      for (unsigned int i = 0; i < (Nx); ++i)
-      {
-          double x = (i + 0.5) * dx;
-          rho[i] = eval_rho(it, x, E_spline, Parameters::NV);
-      }
-
-      ChargeDensity_NuFI rho_function(*this, it, E_spline);
-
-      poisson.set_rhs_function(rho_function);
-
-      for (unsigned int i=0; i< rho.size(); ++i) // check for bad rho[i]
-      {
-        AssertThrow(std::isfinite(rho[i]), ExcMessage("NaN detected in rho"));
-      }
-
+      poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Parameters::SPLINE_NX));
       poisson.solve_step();
 
       if (it % Parameters::PLOT_FREQUENCY == 0)
       {
         std::cout << "Saving results... \n\n";
-        save_ftilda(it, E_spline, 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
+        save_ftilda(it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
         poisson.output_results(it);
       }
-
-      E_grid = poisson.sample_electric_field(poisson, Nx, 0.0, Lx);
-
-      E_spline = std::vector<double> E_coeffs; // needs correction 
   }
 
   std::cout << "NuFI simulation finished.\n";

@@ -33,7 +33,9 @@
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/fe_field_function.h>
 
+#include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "parameters.hpp"
@@ -53,7 +55,7 @@ public:
   void solve_step();
   void run();
 
-  void set_rhs_function(const Function<dim> &rhs);
+  void set_rhs_function(std::unique_ptr<Function<dim>> rhs_function);
 
   const Vector<double> &get_solution() const { return solution; }
   const DoFHandler<dim> &get_dof_handler() const { return dof_handler; }
@@ -83,7 +85,7 @@ private:
   Vector<double> solution;      // phi
   Vector<double> system_rhs;
 
-  const Function<dim> *rhs_function;
+  std::unique_ptr<const Function<dim>> rhs_function;
 
   MappingQ<dim> mapping;
 };
@@ -91,9 +93,9 @@ private:
 // Utilities
 
 template <int dim>
-void PoissonProblem<dim>::set_rhs_function(const Function<dim> &rhs)
+void PoissonProblem<dim>::set_rhs_function(std::unique_ptr<Function<dim>> rhs)
 {
-  rhs_function = &rhs;
+  rhs_function = std::move(rhs);
 }
 
 template <int dim>
@@ -213,9 +215,6 @@ public:
       }
   }
 };
-
-
-// =-=-=-=-= Poisson equation solver =-=-=-=-=
 
 template <int dim>
 void PoissonProblem<dim>::assemble_system()
