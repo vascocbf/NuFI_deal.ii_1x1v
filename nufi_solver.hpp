@@ -184,12 +184,34 @@ inline void NuFISolver::run()
       std::cout << "Timestep " << it << " / " << Nt << std::endl << std::endl;
 
       // compute rho
-    	for(size_t i = 0; i<Nx; i++)
+
+      double dx = Parameters::SPLINE_DX;
+      double x = Parameters::X_DOMAIN_LEFT;
+
+    	for(size_t i = 0; i<Nx; i++, x+=dx)
     	{
-        double ith_rho = eval_rho(it, i, coeffs.get(), Parameters::NV); 
+        double ith_rho = eval_rho(it, x, coeffs.get(), Parameters::NV); 
         AssertThrow(std::isfinite(ith_rho), ExcMessage("NaN detected in rho"));
     		rho.get()[i] =  ith_rho;
     	}
+
+      // bool rho_written = false;
+      //
+      // if (!rho_written)
+      // {
+      //     std::ofstream rho_file("rho_initial.dat");
+      //
+      //     if (!rho_file)
+      //         throw std::runtime_error("Could not open rho_initial.dat");
+      //
+      //     rho_file.precision(16);
+      //     rho_file << std::scientific;
+      //
+      //     for (size_t i = 0; i < Nx; ++i)
+      //         rho_file << rho.get()[i] << "\n";
+      //
+      //     rho_written = true;
+      // }
 
       poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Parameters::SPLINE_NX));
       poisson.solve_step();
