@@ -27,7 +27,10 @@ public:
   void run();
   double eval_rho(unsigned int n, double x, const double *E_coeffs, unsigned int Nv = Parameters::NV);
   double eval_ftilda(unsigned int n, double x, double u, const double *E_coeffs);
+
   void save_ftilda(unsigned int n, const double *E_coeffs, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
+  void save_rho(unsigned int n, const double *E_coeffs, unsigned int Nx_out, const std::string &filename);
+  void save_Efield(unsigned int n, const double *E_coeffs, unsigned int Nx_out, const std::string &filename);
 
 private:
 
@@ -165,6 +168,60 @@ inline void NuFISolver::save_ftilda(unsigned int n,
   file.close();
 }
 
+inline void NuFISolver::save_rho(unsigned int n,
+                                    const double *E_coeffs,
+                                    unsigned int Nx_out,
+                                    const std::string &filename)
+{
+  std::ofstream file(filename);
+
+  double xmin = Parameters::X_DOMAIN_LEFT;
+  double xmax = Parameters::X_DOMAIN_RIGHT;
+  double dx = (xmax - xmin) / Nx_out;
+
+  file << Nx_out << "\n";
+  file << xmin << " " << xmax << "\n";
+
+  for (unsigned int i = 0; i < Nx_out; ++i, xmin += dx)
+  {
+      double val = eval_rho(n, xmin, E_coeffs);
+      file << val;
+      file << "\n";
+  }
+  file.close();
+}
+
+inline void NuFISolver::save_Efield(unsigned int n,
+                                    const double *E_coeffs,
+                                    unsigned int Nx_out,
+                                    const std::string &filename)
+{
+  std::ofstream file(filename);
+
+  double xmin = Parameters::X_DOMAIN_LEFT;
+  double xmax = Parameters::X_DOMAIN_RIGHT;
+  double dx = (xmax - xmin) / Nx_out;
+
+  // select from E_coeffs
+  const size_t stride_x = 1;
+  const size_t stride_t = stride_x*(Parameters::SPLINE_NX + Parameters::SPLINE_ORDER - 1);
+  const double *c;
+  c  = E_coeffs + n*stride_t;
+
+  file << Nx_out << "\n";
+  file << xmin << " " << xmax << "\n";
+
+  for (unsigned int i = 0; i < Nx_out; ++i, xmin += dx)
+  {
+      double val = -eval<1>(xmin, c);
+      file << val;
+      file << "\n";
+  }
+  file.close();
+}
+
+
+
 inline void NuFISolver::run()
 {
   std::cout << "Building E_sline\n\n";
@@ -220,7 +277,8 @@ inline void NuFISolver::run()
       {
         std::cout << "Saving results... \n\n";
         save_ftilda(it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
-        poisson.output_results(it);
+        save_rho(it, coeffs.get(), 128, "results/rho_" + std::to_string(it) + ".dat");
+        save_Efield(it, coeffs.get(), 128, "results/field_" + std::to_string(it) + ".dat");
       }
   }
 

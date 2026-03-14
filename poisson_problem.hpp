@@ -39,7 +39,6 @@
 #include <vector>
 
 #include "parameters.hpp"
-#include "fields.hpp"
 
 using namespace dealii;
 
@@ -64,8 +63,6 @@ public:
                                             unsigned int Nx,
                                             double x_min,
                                             double x_max);
-  void output_results(unsigned int n);
-
 
 private:
   void create_mesh();
@@ -284,57 +281,6 @@ void PoissonProblem<dim>::solve()
   constraints.distribute(solution);
 }
 
-
-template <int dim>
-void PoissonProblem<dim>::output_results(unsigned int n)
-{
-
-  // --- extract DoF coordinates ---
-  std::vector<Point<dim>> support_points(dof_handler.n_dofs());
-
-  DoFTools::map_dofs_to_support_points(mapping,
-                                       dof_handler,
-                                       support_points);
-
-  Vector<double> x_coordinate(dof_handler.n_dofs());
-
-  for (unsigned int i = 0; i < support_points.size(); ++i)
-    x_coordinate[i] = support_points[i][0];  // x-component in 1D
-                                             
-  //---- Output density ----
-  ChargeDensity<dim> rho(Parameters::EPS, Parameters::WAVE_NR, Parameters::NV);
-
-  DataOut<dim> data_out_rho;
-  data_out_rho.attach_dof_handler(dof_handler);
-
-  Vector<double> density(solution.size());
-  VectorTools::interpolate(dof_handler, rho, density);
-
-  data_out_rho.add_data_vector(density, "density");
-  data_out_rho.add_data_vector(x_coordinate, "x_coordinate");
-
-  data_out_rho.build_patches();
-
-  std::ofstream out1("results/density_" + std::to_string(n) + ".vtk");
-  data_out_rho.write_vtk(out1);
-
-  //---- Output electric field & potential ----
-  DataOut<dim> data_out_E;
-  data_out_E.attach_dof_handler(dof_handler);
-
-  ElectricFieldPostprocessor<dim> electric_field;
-  Vector<double> dummy(solution.size() * dim);
-
-  data_out_E.add_data_vector(solution, "potential");
-  data_out_E.add_data_vector(solution, electric_field);
-  data_out_E.add_data_vector(x_coordinate, "x_coordinate");
-
-  data_out_E.build_patches();
-
-  std::ofstream out2("results/electric_field_"+ std::to_string(n)+".vtk");
-  data_out_E.write_vtk(out2);
-}
-
 template <int dim>
 void PoissonProblem<dim>::initialize()
 {
@@ -345,8 +291,6 @@ void PoissonProblem<dim>::initialize()
 template <int dim>
 void PoissonProblem<dim>::solve_step()
 {
-  system_matrix = 0;
-  system_rhs = 0;
   assemble_system();
   solve();
 }
@@ -360,7 +304,6 @@ void PoissonProblem<dim>::run()
   setup_system();
   assemble_system();
   solve();
-  output_results();
 }
 
 #endif
