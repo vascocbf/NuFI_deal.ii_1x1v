@@ -14,6 +14,7 @@
 #include <cstddef>
 
 #include "parameters.hpp"
+#include "save_results.hpp"
 #include "poisson_problem.hpp"
 #include "fields.hpp"
 
@@ -28,9 +29,9 @@ public:
   double eval_rho(unsigned int n, double x, const double *E_coeffs, unsigned int Nv = Parameters::NV);
   double eval_ftilda(unsigned int n, double x, double u, const double *E_coeffs);
 
-  void save_ftilda(unsigned int n, const double *E_coeffs, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
-  void save_rho(unsigned int n, const double *E_coeffs, unsigned int Nx_out, const std::string &filename);
-  void save_Efield(unsigned int n, const double *E_coeffs, unsigned int Nx_out, const std::string &filename);
+  // void save_ftilda(unsigned int n, const double *E_coeffs, unsigned int Nx_out, unsigned int Nv_out, const std::string &filename);
+  // void save_rho(unsigned int n, const double *E_coeffs, unsigned int Nx_out, const std::string &filename);
+  // void save_Efield(unsigned int n, const double *E_coeffs, unsigned int Nx_out, const std::string &filename);
 
 private:
 
@@ -125,100 +126,6 @@ class ChargeDensity_NuFI : public Function<dim>
     const unsigned int Nx;
 };
 
-inline void NuFISolver::save_ftilda(unsigned int n,
-                                    const double *E_coeffs,
-                                    unsigned int Nx_out,
-                                    unsigned int Nv_out,
-                                    const std::string &filename)
-{
-  std::ofstream file(filename);
-
-  double xmin = Parameters::X_DOMAIN_LEFT;
-  double xmax = Parameters::X_DOMAIN_RIGHT;
-
-  double vmin = Parameters::V_DOMAIN_LEFT;
-  double vmax = Parameters::V_DOMAIN_RIGHT;
-
-  double dx = (xmax - xmin) / Nx_out;
-  double dv = (vmax - vmin) / Nv_out;
-
-  file << Nx_out << " " << Nv_out << "\n";
-  file << xmin << " " << xmax << "\n";
-  file << vmin << " " << vmax << "\n";
-
-  for (unsigned int i = 0; i < Nx_out; ++i)
-  {
-      double x = xmin + (i + 0.5)*dx;
-
-      for (unsigned int j = 0; j < Nv_out; ++j)
-      {
-          double v = vmin + (j + 0.5)*dv;
-
-          double val = eval_ftilda(n, x, v, E_coeffs);
-
-          file << val;
-
-          if (j < Nv_out - 1)
-              file << " ";
-      }
-
-      file << "\n";
-  }
-
-  file.close();
-}
-
-inline void NuFISolver::save_rho(unsigned int n,
-                                    const double *E_coeffs,
-                                    unsigned int Nx_out,
-                                    const std::string &filename)
-{
-  std::ofstream file(filename);
-
-  double xmin = Parameters::X_DOMAIN_LEFT;
-  double xmax = Parameters::X_DOMAIN_RIGHT;
-  double dx = (xmax - xmin) / Nx_out;
-
-  file << Nx_out << "\n";
-  file << xmin << " " << xmax << "\n";
-
-  for (unsigned int i = 0; i < Nx_out; ++i, xmin += dx)
-  {
-      double val = eval_rho(n, xmin, E_coeffs);
-      file << val;
-      file << "\n";
-  }
-  file.close();
-}
-
-inline void NuFISolver::save_Efield(unsigned int n,
-                                    const double *E_coeffs,
-                                    unsigned int Nx_out,
-                                    const std::string &filename)
-{
-  std::ofstream file(filename);
-
-  double xmin = Parameters::X_DOMAIN_LEFT;
-  double xmax = Parameters::X_DOMAIN_RIGHT;
-  double dx = (xmax - xmin) / Nx_out;
-
-  // select from E_coeffs
-  const size_t stride_x = 1;
-  const size_t stride_t = stride_x*(Parameters::SPLINE_NX + Parameters::SPLINE_ORDER - 1);
-  const double *c;
-  c  = E_coeffs + n*stride_t;
-
-  file << Nx_out << "\n";
-  file << xmin << " " << xmax << "\n";
-
-  for (unsigned int i = 0; i < Nx_out; ++i, xmin += dx)
-  {
-      double val = -eval<1>(xmin, c);
-      file << val;
-      file << "\n";
-  }
-  file.close();
-}
 
 
 
@@ -276,8 +183,8 @@ inline void NuFISolver::run()
       if (it % Parameters::PLOT_FREQUENCY == 0)
       {
         std::cout << "Saving results... \n\n";
-        save_ftilda(it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
-        save_rho(it, coeffs.get(), 128, "results/rho_" + std::to_string(it) + ".dat");
+        save_ftilda(*this, it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
+        save_rho(*this, it, coeffs.get(), 128, "results/rho_" + std::to_string(it) + ".dat");
         save_Efield(it, coeffs.get(), 128, "results/field_" + std::to_string(it) + ".dat");
       }
   }
@@ -292,4 +199,5 @@ inline NuFISolver::NuFISolver()
   std::cout << "Initializing dealii Poisson Solver\n";
   poisson.initialize();
 }
+
 #endif
