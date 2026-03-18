@@ -1,5 +1,6 @@
 #include "nufi/nufi_solver.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <deal.II/base/point.h>
@@ -10,6 +11,7 @@
 #include <memory>
 #include <ostream>
 #include <cstddef>
+#include <vector>
 
 #include "nufi/parameters.h"
 #include "nufi/save_results.h"
@@ -90,31 +92,18 @@ void NuFISolver::run()
 
     	for(size_t i = 0; i<Nx; i++, x+=dx)
     	{
-        double ith_rho = eval_rho(it, x, coeffs.get(), Parameters::NV); 
+        double ith_rho = eval_rho(it, x, coeffs.get(),Parameters::NV); 
         AssertThrow(std::isfinite(ith_rho), ExcMessage("NaN detected in rho"));
     		rho.get()[i] =  ith_rho;
     	}
 
-      // bool rho_written = false;
-      //
-      // if (!rho_written)
-      // {
-      //     std::ofstream rho_file("rho_initial.dat");
-      //
-      //     if (!rho_file)
-      //         throw std::runtime_error("Could not open rho_initial.dat");
-      //
-      //     rho_file.precision(16);
-      //     rho_file << std::scientific;
-      //
-      //     for (size_t i = 0; i < Nx; ++i)
-      //         rho_file << rho.get()[i] << "\n";
-      //
-      //     rho_written = true;
-      // }
-
       poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Parameters::SPLINE_NX));
       poisson.solve_step();
+
+      std::vector<double> E_vals = poisson.sample_electric_field(Parameters::SPLINE_NX, Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT);
+
+      double* current_coeffs = coeffs.get() + it*stride_t;
+      interpolate<double, Parameters::SPLINE_ORDER>(current_coeffs, E_vals.data());
 
       if (it % Parameters::PLOT_FREQUENCY == 0)
       {

@@ -65,14 +65,14 @@ double eval(double x, const double *coeffs) noexcept
 }
 
 template <typename real, size_t order>
-void interpolate( real *coeffs, const real *values) // Least Squares needs to be made
+void interpolate( real *coeffs, const real *values)
 {
     std::unique_ptr<real[]> tmp { new real[ Parameters::SPLINE_NX ] };
 
     for ( size_t i = 0; i < Parameters::SPLINE_NX; ++i )
         tmp[ i ] = coeffs[ i ];
 
-    struct mat_t // STRUCT AND CONFIG NEEDS TO BE REVIEWED 
+    struct mat_t
     {
         real  N[ order ];
 
@@ -101,7 +101,7 @@ void interpolate( real *coeffs, const real *values) // Least Squares needs to be
         }
     };
 
-    struct transposed_mat_t // STRUCT AND CONFIG NEEDS TO BE REVIEWED 
+    struct transposed_mat_t
     {
         real  N[ order ];
 

@@ -30,6 +30,7 @@
 
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
+#include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/fe_field_function.h>
 
 #include <memory>
@@ -58,8 +59,7 @@ public:
   const Vector<double> &get_solution() const { return solution; }
   const DoFHandler<dim> &get_dof_handler() const { return dof_handler; }
 
-  std::vector<double> sample_electric_field(const PoissonProblem<dim> &problem,  // sampling to save as spline
-                                            unsigned int Nx,
+  std::vector<double> sample_electric_field(unsigned int Nx,
                                             double x_min,
                                             double x_max);
 
@@ -103,36 +103,37 @@ PoissonProblem<dim>::PoissonProblem(unsigned int degree)
 
 template <int dim>
 std::vector<double> PoissonProblem<dim>::sample_electric_field(
-    const PoissonProblem<dim> &problem,
     unsigned int Nx,
     double x_min,
     double x_max)
 {
+  // const auto &dof_handler = problem.get_dof_handler();
+  // const auto &solution = problem.get_solution();
 
-    const auto &dof_handler = problem.get_dof_handler();
-    const auto &solution = problem.get_solution();
+  this -> get_solution();
+  this -> get_dof_handler();
 
-    Functions::FEFieldFunction<dim, Vector<double>>
-      field_function(dof_handler, solution, mapping);
+  Functions::FEFieldFunction<dim, Vector<double>>
+    field_function(dof_handler, solution, mapping);
 
-    std::vector<double> values(Nx);
+  std::vector<double> values(Nx);
 
-    double Lx = x_max - x_min;
-    double dx = Lx / Nx;
+  double Lx = x_max - x_min;
+  double dx = Lx / Nx;
 
-    for (unsigned int i = 0; i < Nx; ++i)
-    {
-        double x = x_min + i * dx;
+  for (unsigned int i = 0; i < Nx; ++i)
+  {
+      double x = x_min + i * dx;
 
-        Point<dim> p;
-        p[0] = x;
+      Point<dim> p;
+      p[0] = x;
 
-        Tensor<1, dim> grad = field_function.gradient(p);
+      Tensor<1, dim> grad = field_function.gradient(p);
 
-        values[i] = -grad[0];  // E = -dφ/dx
-    }
+      values[i] = -grad[0];  // E = -dφ/dx
+  }
 
-    return values;
+  return values;
 }
 
 // dealii Poisson
@@ -145,19 +146,23 @@ void PoissonProblem<dim>::create_mesh()
                             Parameters::X_DOMAIN_LEFT,
                             Parameters::X_DOMAIN_RIGHT);
 
+  // TO CHECK:
+  //
   // Make x-dim boundaries periodic
-  Tensor<1, dim> offset;
-  std::vector<GridTools::PeriodicFacePair<
-              typename Triangulation<dim>::cell_iterator>> periodicity_vector;
-
-  GridTools::collect_periodic_faces(triangulation,
-                                    0,
-                                    1,
-                                    0,
-                                    periodicity_vector,
-                                    offset);
-  
-  triangulation.add_periodicity(periodicity_vector);
+  // Tensor<1, dim> offset;
+  // std::vector<GridTools::PeriodicFacePair<
+  //             typename Triangulation<dim>::cell_iterator>> periodicity_vector;
+  //
+  // GridTools::collect_periodic_faces(triangulation,
+  //                                   0,
+  //                                   1,
+  //                                   0,
+  //                                   periodicity_vector,
+  //                                   offset);
+  //
+  // triangulation.add_periodicity(periodicity_vector);
+  //
+  // END CHECK
 
   triangulation.refine_global(Parameters::GLOBAL_REFINEMENT);
 }
@@ -168,49 +173,28 @@ void PoissonProblem<dim>::setup_system()
 
   dof_handler.distribute_dofs(fe);
 
-  constraints.clear();
-  DoFTools::make_hanging_node_constraints(dof_handler, constraints);
-
-  // 'boundary' condition phi(x_0) = 0 
-  constraints.add_line(0);
-  constraints.set_inhomogeneity(0, 0.0);
-
-  constraints.close();
+  // TO CHECK:
+  //
+  // constraints.clear();
+  // DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+  //
+  // // 'boundary' condition phi(x_0) = 0 
+  // constraints.add_line(0);
+  // constraints.set_inhomogeneity(0, 0.0);
+  //
+  // constraints.close();
+  //
+  // END CHECK
 
   DynamicSparsityPattern dsp(dof_handler.n_dofs());
   DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints);
   sparsity_pattern.copy_from(dsp);
 
   system_matrix.reinit(sparsity_pattern);
+
   solution.reinit(dof_handler.n_dofs());
   system_rhs.reinit(dof_handler.n_dofs());
 }
-
-// =-=-=-=-= E_field = -dPhi/dx =-=-=-=-=
-
-template <int dim>
-class ElectricFieldPostprocessor : public DataPostprocessorVector<dim>
-{
-public:
-  ElectricFieldPostprocessor()
-    : DataPostprocessorVector<dim>("electric_field", update_gradients)
-  {}
-
-  virtual void evaluate_scalar_field(
-    const DataPostprocessorInputs::Scalar<dim> &input_data,
-    std::vector<Vector<double>> &computed_quantities) const override
-  {
-    AssertDimension(input_data.solution_gradients.size(),
-                    computed_quantities.size());
-
-    for (unsigned int p = 0; p < input_data.solution_gradients.size(); ++p)
-      {
-        AssertDimension(computed_quantities[p].size(), dim);
-        for (unsigned int d = 0; d < dim; ++d)
-          computed_quantities[p][d] = -input_data.solution_gradients[p][d];
-      }
-  }
-};
 
 template <int dim>
 void PoissonProblem<dim>::assemble_system()
@@ -223,7 +207,6 @@ void PoissonProblem<dim>::assemble_system()
                           update_JxW_values);
 
   const unsigned int dofs_per_cell = fe.n_dofs_per_cell();
-  const unsigned int n_q_points    = quadrature_formula.size();
 
   FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
   Vector<double>     cell_rhs(dofs_per_cell);
@@ -234,35 +217,54 @@ void PoissonProblem<dim>::assemble_system()
   for (const auto &cell : dof_handler.active_cell_iterators())
   {
     fe_values.reinit(cell);
+
     cell_matrix = 0;
     cell_rhs    = 0;
 
-    for (unsigned int q = 0; q < n_q_points; ++q)
+    for (const auto q : fe_values.quadrature_point_indices())
     {
       const double rho = rhs_function->value(fe_values.quadrature_point(q));
 
-      for (unsigned int i = 0; i < dofs_per_cell; ++i)
-      {
-        for (unsigned int j = 0; j < dofs_per_cell; ++j)
+      for (const unsigned int i : fe_values.dof_indices())
+        for (const unsigned int j : fe_values.dof_indices())
           cell_matrix(i, j) +=
-              fe_values.shape_grad(i, q) *
-              fe_values.shape_grad(j, q) *
-              fe_values.JxW(q);
+            (fe_values.shape_grad(i, q) * // grad phi_i(x_q)
+             fe_values.shape_grad(j, q) * // grad phi_j(x_q)
+             fe_values.JxW(q));           // dx
 
-        cell_rhs(i) +=
-            fe_values.shape_value(i, q) *
-            rho *
-            fe_values.JxW(q);
-      }
+      for (const unsigned int i : fe_values.dof_indices())
+        cell_rhs(i) += (fe_values.shape_value(i, q) * // phi_i(x_q)
+                        rho *                         // f(x_q)
+                        fe_values.JxW(q));            // dx
+
+
     }
 
     cell->get_dof_indices(local_dof_indices);
-    constraints.distribute_local_to_global(cell_matrix,
-                                           cell_rhs,
-                                           local_dof_indices,
-                                           system_matrix,
-                                           system_rhs);
+    // constraints.distribute_local_to_global(cell_matrix,
+    //                                        cell_rhs,
+    //                                        local_dof_indices,
+    //                                        system_matrix,
+    //                                        system_rhs);
+    for (const unsigned int i : fe_values.dof_indices())
+      for (const unsigned int j : fe_values.dof_indices())
+        system_matrix.add(local_dof_indices[i],
+                          local_dof_indices[j],
+                          cell_matrix(i, j));
+
+    for (const unsigned int i : fe_values.dof_indices())
+      system_rhs(local_dof_indices[i]) += cell_rhs(i);
+
   }
+  std::map<types::global_dof_index, double> boundary_values;
+  VectorTools::interpolate_boundary_values(dof_handler,
+                                           types::boundary_id(0),
+                                           Functions::ZeroFunction<1>(),
+                                           boundary_values);
+  MatrixTools::apply_boundary_values(boundary_values,
+                                     system_matrix,
+                                     solution,
+                                     system_rhs);
 }
 
 
@@ -270,14 +272,15 @@ template <int dim>
 void PoissonProblem<dim>::solve()
 {
 
-  SolverControl            solver_control(1000, 1e-12);
+  SolverControl            solver_control(5000, 1e-12);
   SolverCG<Vector<double>> solver(solver_control);
 
-  PreconditionSSOR<SparseMatrix<double>> preconditioner;
-  preconditioner.initialize(system_matrix, 1.2);
+  // PreconditionSSOR<SparseMatrix<double>> preconditioner;
+  // preconditioner.initialize(system_matrix, 1.2);
 
-  solver.solve(system_matrix, solution, system_rhs, preconditioner);
-  constraints.distribute(solution);
+  // solver.solve(system_matrix, solution, system_rhs, preconditioner);
+  solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
+  // constraints.distribute(solution);
 }
 
 template <int dim>

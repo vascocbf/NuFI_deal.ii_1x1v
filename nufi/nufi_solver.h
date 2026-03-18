@@ -9,7 +9,7 @@
 
 #include "nufi/parameters.h"
 #include "nufi/poisson_problem.h"
-#include "nufi/fields.h"
+#include "nufi/fields.h" //dont remove
 
 using namespace dealii;
 

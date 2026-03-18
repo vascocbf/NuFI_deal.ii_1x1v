@@ -15,10 +15,10 @@ namespace Parameters
   constexpr double V_DOMAIN_LEFT = -10.0;
   constexpr double V_DOMAIN_RIGHT = 10.0;
 
-  constexpr unsigned int NV = 512;
+  constexpr unsigned int NV = 1024;
 
   constexpr unsigned int GLOBAL_REFINEMENT = 8;
-  constexpr unsigned int FE_DEGREE = 4;
+  constexpr unsigned int FE_DEGREE = 3;
 
   constexpr double EPS = 0.01;
   constexpr double WAVE_NR = 0.5;
@@ -30,7 +30,7 @@ namespace Parameters
 
 
   //spline options
-  constexpr int SPLINE_NX = 512;
+  constexpr int SPLINE_NX = 1024;
   constexpr double SPLINE_DX = LX/SPLINE_NX;
   constexpr size_t SPLINE_ORDER = 4;
 
