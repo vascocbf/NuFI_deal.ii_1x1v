@@ -1,16 +1,7 @@
-##
-#  CMake script for NuFI FEM Poisson Prototype
-##
-
 cmake_minimum_required(VERSION 3.13.4)
 
-# Name of your executable (must match your .cc filename!)
-set(TARGET "nufi_poisson")
-
-# List your source files here
-set(TARGET_SRC
-  ${TARGET}.cc
-)
+project(nufi_poisson)
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(deal.II 9.6.0
   HINTS ${deal.II_DIR} ${DEAL_II_DIR} ../ ../../ $ENV{DEAL_II_DIR}
@@ -25,8 +16,27 @@ endif()
 
 deal_ii_initialize_cached_variables()
 
-project(${TARGET})
+# -------------------------
 
-add_executable(${TARGET} ${TARGET_SRC})
+add_library(nufi_lib
+  src/nufi_solver.cc
+  src/save_results.cc
+)
 
-deal_ii_setup_target(${TARGET})
+target_include_directories(nufi_lib PUBLIC
+  ${CMAKE_SOURCE_DIR}
+)
+
+deal_ii_setup_target(nufi_lib)
+
+# -------------------------
+
+add_executable(nufi_poisson
+  src/main.cc
+)
+
+target_link_libraries(nufi_poisson
+  nufi_lib
+)
+
+deal_ii_setup_target(nufi_poisson)

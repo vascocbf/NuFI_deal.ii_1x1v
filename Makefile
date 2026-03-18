@@ -117,6 +117,19 @@ depend:
 .PHONY : depend
 
 #=============================================================================
+# Target rules for targets named nufi_lib
+
+# Build rule for target.
+nufi_lib: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 nufi_lib
+.PHONY : nufi_lib
+
+# fast build rule for target.
+nufi_lib/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_lib.dir/build.make CMakeFiles/nufi_lib.dir/build
+.PHONY : nufi_lib/fast
+
+#=============================================================================
 # Target rules for targets named nufi_poisson
 
 # Build rule for target.
@@ -129,29 +142,77 @@ nufi_poisson/fast:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_poisson.dir/build.make CMakeFiles/nufi_poisson.dir/build
 .PHONY : nufi_poisson/fast
 
-nufi_poisson.o: nufi_poisson.cc.o
-.PHONY : nufi_poisson.o
+src/main.o: src/main.cc.o
+.PHONY : src/main.o
 
 # target to build an object file
-nufi_poisson.cc.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_poisson.dir/build.make CMakeFiles/nufi_poisson.dir/nufi_poisson.cc.o
-.PHONY : nufi_poisson.cc.o
+src/main.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_poisson.dir/build.make CMakeFiles/nufi_poisson.dir/src/main.cc.o
+.PHONY : src/main.cc.o
 
-nufi_poisson.i: nufi_poisson.cc.i
-.PHONY : nufi_poisson.i
+src/main.i: src/main.cc.i
+.PHONY : src/main.i
 
 # target to preprocess a source file
-nufi_poisson.cc.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_poisson.dir/build.make CMakeFiles/nufi_poisson.dir/nufi_poisson.cc.i
-.PHONY : nufi_poisson.cc.i
+src/main.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_poisson.dir/build.make CMakeFiles/nufi_poisson.dir/src/main.cc.i
+.PHONY : src/main.cc.i
 
-nufi_poisson.s: nufi_poisson.cc.s
-.PHONY : nufi_poisson.s
+src/main.s: src/main.cc.s
+.PHONY : src/main.s
 
 # target to generate assembly for a file
-nufi_poisson.cc.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_poisson.dir/build.make CMakeFiles/nufi_poisson.dir/nufi_poisson.cc.s
-.PHONY : nufi_poisson.cc.s
+src/main.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_poisson.dir/build.make CMakeFiles/nufi_poisson.dir/src/main.cc.s
+.PHONY : src/main.cc.s
+
+src/nufi_solver.o: src/nufi_solver.cc.o
+.PHONY : src/nufi_solver.o
+
+# target to build an object file
+src/nufi_solver.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_lib.dir/build.make CMakeFiles/nufi_lib.dir/src/nufi_solver.cc.o
+.PHONY : src/nufi_solver.cc.o
+
+src/nufi_solver.i: src/nufi_solver.cc.i
+.PHONY : src/nufi_solver.i
+
+# target to preprocess a source file
+src/nufi_solver.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_lib.dir/build.make CMakeFiles/nufi_lib.dir/src/nufi_solver.cc.i
+.PHONY : src/nufi_solver.cc.i
+
+src/nufi_solver.s: src/nufi_solver.cc.s
+.PHONY : src/nufi_solver.s
+
+# target to generate assembly for a file
+src/nufi_solver.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_lib.dir/build.make CMakeFiles/nufi_lib.dir/src/nufi_solver.cc.s
+.PHONY : src/nufi_solver.cc.s
+
+src/save_results.o: src/save_results.cc.o
+.PHONY : src/save_results.o
+
+# target to build an object file
+src/save_results.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_lib.dir/build.make CMakeFiles/nufi_lib.dir/src/save_results.cc.o
+.PHONY : src/save_results.cc.o
+
+src/save_results.i: src/save_results.cc.i
+.PHONY : src/save_results.i
+
+# target to preprocess a source file
+src/save_results.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_lib.dir/build.make CMakeFiles/nufi_lib.dir/src/save_results.cc.i
+.PHONY : src/save_results.cc.i
+
+src/save_results.s: src/save_results.cc.s
+.PHONY : src/save_results.s
+
+# target to generate assembly for a file
+src/save_results.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/nufi_lib.dir/build.make CMakeFiles/nufi_lib.dir/src/save_results.cc.s
+.PHONY : src/save_results.cc.s
 
 # Help Target
 help:
@@ -161,10 +222,17 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
+	@echo "... nufi_lib"
 	@echo "... nufi_poisson"
-	@echo "... nufi_poisson.o"
-	@echo "... nufi_poisson.i"
-	@echo "... nufi_poisson.s"
+	@echo "... src/main.o"
+	@echo "... src/main.i"
+	@echo "... src/main.s"
+	@echo "... src/nufi_solver.o"
+	@echo "... src/nufi_solver.i"
+	@echo "... src/nufi_solver.s"
+	@echo "... src/save_results.o"
+	@echo "... src/save_results.i"
+	@echo "... src/save_results.s"
 .PHONY : help
 
 
