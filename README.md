@@ -6,5 +6,6 @@ This simulation of the Vlasov-Poisson system in 1x1v dimensions uses
 
 --- 
 Todo:
-- Correct dealii solver, check ftilda results to see whats happening
-    - marry fields.hpp to new splines
+- Correct dealii solver
+    - E field is 0 all the time everywhere
+    - rho(x) just dampens over time
