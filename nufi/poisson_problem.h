@@ -5,6 +5,7 @@
 
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/logstream.h>
+#include <deal.II/base/template_constraints.h>
 #include <deal.II/base/tensor.h>
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/index_set.h>
@@ -33,6 +34,7 @@
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/fe_field_function.h>
 
+#include <deal.II/numerics/vector_tools_interpolate.h>
 #include <memory>
 #include <string>
 #include <utility>
@@ -107,9 +109,6 @@ std::vector<double> PoissonProblem<dim>::sample_electric_field(
     double x_min,
     double x_max)
 {
-  // const auto &dof_handler = problem.get_dof_handler();
-  // const auto &solution = problem.get_solution();
-
   this -> get_solution();
   this -> get_dof_handler();
 
@@ -146,23 +145,16 @@ void PoissonProblem<dim>::create_mesh()
                             Parameters::X_DOMAIN_LEFT,
                             Parameters::X_DOMAIN_RIGHT);
 
-  // TO CHECK:
-  //
-  // Make x-dim boundaries periodic
-  // Tensor<1, dim> offset;
-  // std::vector<GridTools::PeriodicFacePair<
-  //             typename Triangulation<dim>::cell_iterator>> periodicity_vector;
-  //
-  // GridTools::collect_periodic_faces(triangulation,
-  //                                   0,
-  //                                   1,
-  //                                   0,
-  //                                   periodicity_vector,
-  //                                   offset);
-  //
-  // triangulation.add_periodicity(periodicity_vector);
-  //
-  // END CHECK
+
+  std::vector<GridTools::PeriodicFacePair<
+      typename Triangulation<dim>::cell_iterator>> periodic_faces;
+
+  GridTools::collect_periodic_faces(triangulation,
+                                    0, 1,   // boundary IDs
+                                    0,      
+                                    periodic_faces);
+
+  triangulation.add_periodicity(periodic_faces);
 
   triangulation.refine_global(Parameters::GLOBAL_REFINEMENT);
 }
@@ -173,18 +165,16 @@ void PoissonProblem<dim>::setup_system()
 
   dof_handler.distribute_dofs(fe);
 
-  // TO CHECK:
-  //
-  // constraints.clear();
-  // DoFTools::make_hanging_node_constraints(dof_handler, constraints);
-  //
-  // // 'boundary' condition phi(x_0) = 0 
-  // constraints.add_line(0);
-  // constraints.set_inhomogeneity(0, 0.0);
-  //
-  // constraints.close();
-  //
-  // END CHECK
+  constraints.clear();
+  
+  DoFTools::make_hanging_node_constraints(dof_handler, constraints);
+
+  DoFTools::make_periodicity_constraints(dof_handler,
+                                         0, 1,
+                                         0,
+                                         constraints);
+  
+  constraints.close();
 
   DynamicSparsityPattern dsp(dof_handler.n_dofs());
   DoFTools::make_sparsity_pattern(dof_handler, dsp, constraints);
@@ -241,11 +231,11 @@ void PoissonProblem<dim>::assemble_system()
     }
 
     cell->get_dof_indices(local_dof_indices);
-    // constraints.distribute_local_to_global(cell_matrix,
-    //                                        cell_rhs,
-    //                                        local_dof_indices,
-    //                                        system_matrix,
-    //                                        system_rhs);
+    constraints.distribute_local_to_global(cell_matrix,
+                                           cell_rhs,
+                                           local_dof_indices,
+                                           system_matrix,
+                                           system_rhs);
     for (const unsigned int i : fe_values.dof_indices())
       for (const unsigned int j : fe_values.dof_indices())
         system_matrix.add(local_dof_indices[i],
@@ -257,10 +247,10 @@ void PoissonProblem<dim>::assemble_system()
 
   }
   std::map<types::global_dof_index, double> boundary_values;
-  VectorTools::interpolate_boundary_values(dof_handler,
-                                           types::boundary_id(0),
-                                           Functions::ZeroFunction<1>(),
-                                           boundary_values);
+  // VectorTools::interpolate_boundary_values(dof_handler,
+  //                                          types::boundary_id(0),
+  //                                          Functions::ZeroFunction<1>(),
+  //                                          boundary_values);
   MatrixTools::apply_boundary_values(boundary_values,
                                      system_matrix,
                                      solution,
@@ -272,7 +262,7 @@ template <int dim>
 void PoissonProblem<dim>::solve()
 {
 
-  SolverControl            solver_control(5000, 1e-12);
+  SolverControl            solver_control(Parameters::CONVERGENCE_ITERATIONS, Parameters::CONVERGENCE_LIMIT);
   SolverCG<Vector<double>> solver(solver_control);
 
   // PreconditionSSOR<SparseMatrix<double>> preconditioner;

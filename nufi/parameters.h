@@ -15,10 +15,13 @@ namespace Parameters
   constexpr double V_DOMAIN_LEFT = -10.0;
   constexpr double V_DOMAIN_RIGHT = 10.0;
 
-  constexpr unsigned int NV = 1024;
+  constexpr unsigned int NV = 562;
 
-  constexpr unsigned int GLOBAL_REFINEMENT = 8;
-  constexpr unsigned int FE_DEGREE = 3;
+  // deal.ii options
+  constexpr unsigned int GLOBAL_REFINEMENT = 7;
+  constexpr unsigned int FE_DEGREE = 4;
+  constexpr unsigned int CONVERGENCE_ITERATIONS = 20000;
+  constexpr double CONVERGENCE_LIMIT = 1e-12;
 
   constexpr double EPS = 0.01;
   constexpr double WAVE_NR = 0.5;
@@ -26,16 +29,15 @@ namespace Parameters
 
   // NUFI options
   constexpr double DT=1./16.;
-  constexpr unsigned int TMAX = 10;
-
+  constexpr unsigned int TMAX = 20;
 
   //spline options
-  constexpr int SPLINE_NX = 1024;
+  constexpr int SPLINE_NX = 562;
   constexpr double SPLINE_DX = LX/SPLINE_NX;
   constexpr size_t SPLINE_ORDER = 4;
 
   //Plotting options
-  constexpr int PLOT_FREQUENCY = 2;
+  constexpr int PLOT_FREQUENCY = 5;
 }
 
 #endif
