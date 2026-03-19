@@ -6,6 +6,4 @@ This simulation of the Vlasov-Poisson system in 1x1v dimensions uses
 
 --- 
 Todo:
-- Correct dealii solver
-    - E field is 0 all the time everywhere
-    - rho(x) just dampens over time
+- Correct E field sampler from dealii's sovler
