@@ -1,8 +1,12 @@
 #ifndef POISSON_PROBLEM_H
 #define POISSON_PROBLEM_H
 
+#include <cstdlib>
+#include <deal.II/base/exceptions.h>
 #include <deal.II/base/function.h>
 
+#include <deal.II/base/mpi_remote_point_evaluation.h>
+#include <deal.II/base/point.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/template_constraints.h>
@@ -10,6 +14,7 @@
 #include <deal.II/base/utilities.h>
 #include <deal.II/base/index_set.h>
 
+#include <deal.II/lac/la_parallel_vector.h>
 #include <deal.II/lac/vector.h>
 #include <deal.II/lac/full_matrix.h>
 #include <deal.II/lac/sparse_matrix.h>
@@ -29,12 +34,14 @@
 #include <deal.II/fe/fe_q.h>
 #include <deal.II/fe/fe_values.h>
 
+#include <deal.II/matrix_free/fe_point_evaluation.h>
 #include <deal.II/numerics/data_out.h>
 #include <deal.II/numerics/vector_tools.h>
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/fe_field_function.h>
-
 #include <deal.II/numerics/vector_tools_interpolate.h>
+#include <deal.II/numerics/vector_tools_evaluate.h>
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -61,9 +68,9 @@ public:
   const Vector<double> &get_solution() const { return solution; }
   const DoFHandler<dim> &get_dof_handler() const { return dof_handler; }
 
-  std::vector<double> sample_electric_field(unsigned int Nx,
-                                            double x_min,
-                                            double x_max);
+  std::vector<double> sample_electric_potential(double x_min,
+                                            double x_max,
+                                            unsigned int Nx = Parameters::SPLINE_NX);
 
 private:
   void create_mesh();
@@ -104,33 +111,20 @@ PoissonProblem<dim>::PoissonProblem(unsigned int degree)
 {}
 
 template <int dim>
-std::vector<double> PoissonProblem<dim>::sample_electric_field(
-    unsigned int Nx,
-    double x_min,
-    double x_max)
+std::vector<double> PoissonProblem<dim>::sample_electric_potential(double x_min,
+    double x_max,
+    unsigned int Nx)
 {
-  this -> get_solution();
-  this -> get_dof_handler();
-
-  Functions::FEFieldFunction<dim, Vector<double>>
-    field_function(dof_handler, solution, mapping);
-
   std::vector<double> values(Nx);
-
-  double Lx = x_max - x_min;
-  double dx = Lx / Nx;
+  std::vector<Point<1>> points(Nx);    
 
   for (unsigned int i = 0; i < Nx; ++i)
   {
-      double x = x_min + i * dx;
-
-      Point<dim> p;
-      p[0] = x;
-
-      Tensor<1, dim> grad = field_function.gradient(p);
-
-      values[i] = -grad[0];  // E = -dφ/dx
+    double x = x_min + (x_max-x_min)*i/(Nx-1);
+    points[i] = Point<1>(x);
   }
+  Utilities::MPI::RemotePointEvaluation<dim, dim> cache;
+  values = VectorTools::point_values<1>(mapping, dof_handler, solution, points, cache);
 
   return values;
 }
@@ -265,12 +259,7 @@ void PoissonProblem<dim>::solve()
   SolverControl            solver_control(Parameters::CONVERGENCE_ITERATIONS, Parameters::CONVERGENCE_LIMIT);
   SolverCG<Vector<double>> solver(solver_control);
 
-  // PreconditionSSOR<SparseMatrix<double>> preconditioner;
-  // preconditioner.initialize(system_matrix, 1.2);
-
-  // solver.solve(system_matrix, solution, system_rhs, preconditioner);
   solver.solve(system_matrix, solution, system_rhs, PreconditionIdentity());
-  // constraints.distribute(solution);
 }
 
 template <int dim>

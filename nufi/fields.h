@@ -142,9 +142,46 @@ void interpolate( real *coeffs, const real *values)
         coeffs[ i ] = tmp[ i % Parameters::SPLINE_NX ];
 }
 
+class Gradient {
+public:
+    Gradient(double xmin, double xmax, unsigned int Nx)
+        : xmin_(xmin), xmax_(xmax), Nx_(Nx)
+    {
+        if (xmax_ <= xmin_) {
+            throw std::invalid_argument("xmax must be greater than xmin");
+        }
+    }
 
+    std::vector<double> compute(const std::vector<double>& values) const {
+        size_t n = values.size();
+        if (n < 2) {
+            throw std::invalid_argument("Need at least 2 points");
+        }
+
+        std::vector<double> grad(n);
+
+        double dx = (xmax_ - xmin_) / (n-1);
+        // periodic boundaries
+        grad[0]     = -(values[1]   - values[n-1]) / (2.0 * dx);
+        grad[n-1]   = -(values[0]   - values[n-2]) / (2.0 * dx);
+
+        for (size_t i = 1; i < n-1; ++i) {
+            grad[i] = -(values[i+1] - values[i-1]) / (2.0 * dx);
+        }
+
+
+        return grad;
+    }
+
+private:
+    double xmin_;
+    double xmax_;
+    [[maybe_unused]] unsigned int Nx_;
+};
+
+// Not used, only outputs f0
 template <int dim>
-class ChargeDensity : public Function<dim> // only uses f0
+class ChargeDensity : public Function<dim>
 {
 public:
   ChargeDensity(double eps,
