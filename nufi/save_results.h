@@ -23,4 +23,7 @@ void save_Efield(unsigned int n,
                                     unsigned int Nx_out,
                                     const std::string &filename);
 
+
+void save_space_vector(const std::vector<double>& vals, const std::string& filename, size_t it);
+
 #endif 

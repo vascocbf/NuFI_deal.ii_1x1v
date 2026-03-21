@@ -1,6 +1,7 @@
 #ifndef NUFI_SOLVER_H
 #define NUFI_SOLVER_H
 
+#include <boost/qvm/mat_access.hpp>
 #include <vector>
 #include <cmath>
 #include <deal.II/base/point.h>
@@ -29,6 +30,9 @@ private:
   unsigned int Nx = Parameters::SPLINE_NX;
 
   double Lx = Parameters::LX;
+
+  double x_min = Parameters::X_DOMAIN_LEFT;
+  double x_max = Parameters::X_DOMAIN_RIGHT;
 
   std::vector<double> rho;
 

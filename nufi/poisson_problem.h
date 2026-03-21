@@ -3,6 +3,8 @@
 
 #include <deal.II/base/function.h>
 
+#include <deal.II/base/mpi_remote_point_evaluation.h>
+#include <deal.II/base/point.h>
 #include <deal.II/base/quadrature_lib.h>
 #include <deal.II/base/logstream.h>
 #include <deal.II/base/template_constraints.h>
@@ -34,6 +36,7 @@
 #include <deal.II/numerics/matrix_tools.h>
 #include <deal.II/numerics/fe_field_function.h>
 
+#include <deal.II/numerics/vector_tools_evaluate.h>
 #include <deal.II/numerics/vector_tools_interpolate.h>
 #include <memory>
 #include <string>
@@ -61,9 +64,8 @@ public:
   const Vector<double> &get_solution() const { return solution; }
   const DoFHandler<dim> &get_dof_handler() const { return dof_handler; }
 
-  std::vector<double> sample_electric_field(unsigned int Nx,
-                                            double x_min,
-                                            double x_max);
+  std::vector<double> sample_electric_field(double x_min, double x_max, unsigned int Nx);
+  std::vector<double> sample_electric_potential(double x_min, double x_max, unsigned int Nx);
 
 private:
   void create_mesh();
@@ -104,33 +106,71 @@ PoissonProblem<dim>::PoissonProblem(unsigned int degree)
 {}
 
 template <int dim>
-std::vector<double> PoissonProblem<dim>::sample_electric_field(
-    unsigned int Nx,
-    double x_min,
-    double x_max)
+std::vector<double> PoissonProblem<dim>::sample_electric_field(double x_min,double x_max,unsigned int Nx)
 {
-  this -> get_solution();
-  this -> get_dof_handler();
+  std::vector<double> E_values(Nx);
 
-  Functions::FEFieldFunction<dim, Vector<double>>
-    field_function(dof_handler, solution, mapping);
+  const double dx = (x_max - x_min) / (Nx - 1);
 
+  for (unsigned int i = 0; i < Nx; ++i)
+  {
+      const double x = x_min + i * dx;
+      const Point<dim> point(x);
+
+      // 1. Find the active cell containing x
+      const auto cell_point_pair =
+          GridTools::find_active_cell_around_point(mapping,
+                                                   dof_handler,
+                                                   point);
+
+      const auto cell = cell_point_pair.first;
+      const Point<dim> &unit_point = cell_point_pair.second;
+
+      // 2. FEPointEvaluation expects an ArrayView of points
+      std::vector<Point<dim>> points(1, unit_point);
+      ArrayView<const Point<dim>> point_view(points);
+
+      FEPointEvaluation<1, dim> evaluator(mapping,
+                                          dof_handler.get_fe(),
+                                          update_gradients);
+
+      // reinit with ArrayView of points
+      evaluator.reinit(cell, point_view);
+
+      Vector<double> local_dofs(dof_handler.get_fe().dofs_per_cell);
+      cell->get_dof_values(solution, local_dofs);
+
+      // 3. Evaluate gradient at this point
+      evaluator.evaluate(local_dofs, EvaluationFlags::gradients);
+
+      const Tensor<1, dim> grad_phi = evaluator.get_gradient(0);
+
+      // 4. Compute E = -grad(phi)
+      E_values[i] = -grad_phi[0];
+  }
+
+  return E_values;
+}
+
+template <int dim>
+std::vector<double> PoissonProblem<dim>::sample_electric_potential(
+    double x_min,
+    double x_max,
+    unsigned int Nx)
+{
   std::vector<double> values(Nx);
+  std::vector<Point<dim>> eval_points(Nx);
 
   double Lx = x_max - x_min;
   double dx = Lx / Nx;
 
-  for (unsigned int i = 0; i < Nx; ++i)
-  {
-      double x = x_min + i * dx;
+  for(unsigned int i=0 ; i<Nx; ++i)
+    eval_points[i] = Point<1, double>(x_min + i * dx);
 
-      Point<dim> p;
-      p[0] = x;
+  Utilities::MPI::RemotePointEvaluation<dim,dim> cache;
+  cache.reinit(eval_points, triangulation, mapping);
 
-      Tensor<1, dim> grad = field_function.gradient(p);
-
-      values[i] = -grad[0];  // E = -dφ/dx
-  }
+  values = VectorTools::point_values<dim>(cache, dof_handler, solution);
 
   return values;
 }
