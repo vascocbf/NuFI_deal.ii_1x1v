@@ -28,7 +28,7 @@ double NuFISolver::eval_ftilda(unsigned int n,
   if ( n == 0 ) return f0(x,u);
 
   const size_t stride_x = 1;
-  const size_t stride_t = stride_x*(Parameters::SPLINE_NX + Parameters::SPLINE_ORDER - 1);
+  const size_t stride_t = stride_x*(Nx + Parameters::SPLINE_ORDER - 1);
 
   double Ex;
   const double *c;
@@ -81,7 +81,7 @@ void NuFISolver::run()
 
   if ( rho == nullptr ) throw std::bad_alloc {};
 
-  Gradient grad(Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT, Parameters::SPLINE_NX);
+  Gradient grad(x_min, x_max, Nx);
 
   for (unsigned int it = 0; it < Nt; ++it)
   {
@@ -99,28 +99,17 @@ void NuFISolver::run()
     		rho.get()[i] =  ith_rho;
     	}
 
-      poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Parameters::SPLINE_NX));
+      poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Nx));
       poisson.solve_step();
 
-      // std::vector<double> sampled_potential = poisson.sample_electric_potential(Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT, Parameters::SPLINE_NX);
+      std::vector<double> sampled_potential = poisson.sample_electric_potential(x_min, x_max, Nx);
 
-      // sampled_potential.erase(sampled_potential.begin());
-      // sampled_potential.erase(sampled_potential.end()-1);
-      //
-      // std::ofstream file("results/potential_" + std::to_string(it) + ".dat");
-      // file << sampled_potential.size() << "\n";
-      // file << Parameters::X_DOMAIN_LEFT << " " << Parameters::X_DOMAIN_RIGHT << "\n";
-      // file << std::fixed << std::setprecision(8);
-      // for (double val : sampled_potential) file << val << "\n";
-      //
-      //
-      // std::vector<double> E_vals = grad.compute(sampled_potential); 
-      std::vector<double> E_vals = poisson.sample_electric_field(Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT,Parameters::SPLINE_NX);
-      std::ofstream file("results/potential_" + std::to_string(it) + ".dat");
-      file << E_vals.size() << "\n";
-      file << Parameters::X_DOMAIN_LEFT << " " << Parameters::X_DOMAIN_RIGHT << "\n";
-      file << std::fixed << std::setprecision(8);
-      for (double val : E_vals) file << val << "\n";
+      save_space_vector(sampled_potential, "potential", it);
+
+      std::vector<double> E_vals = grad.compute(sampled_potential); 
+      // std::vector<double> E_vals = poisson.sample_electric_field(x_min, x_max, Nx);
+      
+      save_space_vector(E_vals, "electric", it);
 
       double* current_coeffs = coeffs.get() + it*stride_t;
       interpolate<double, Parameters::SPLINE_ORDER>(current_coeffs, E_vals.data());
