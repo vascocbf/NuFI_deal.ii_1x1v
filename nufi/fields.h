@@ -142,6 +142,29 @@ void interpolate( real *coeffs, const real *values)
         coeffs[ i ] = tmp[ i % Parameters::SPLINE_NX ];
 }
 
+double integral_space_vector(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
+{
+  double integral = 0.0;
+  double x = Parameters::X_DOMAIN_LEFT;
+  for (size_t i=0; i<Nx ; ++i) {
+    x += dx;
+    integral += eval<1>(x, current_coeffs)*dx;
+  }
+  return integral;
+};
+
+double integral_space_vector_squared(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
+{
+  double integral = 0.0;
+  double x = Parameters::X_DOMAIN_LEFT;
+  for (size_t i=0; i<Nx ; ++i) {
+    x += dx;
+    double val = eval<1>(x, current_coeffs); 
+    integral += val*val*dx;
+  }
+  return integral;
+};
+
 class Gradient {
 public:
     Gradient(double xmin, double xmax, unsigned int Nx)

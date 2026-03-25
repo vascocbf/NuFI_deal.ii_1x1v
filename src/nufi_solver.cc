@@ -79,6 +79,9 @@ void NuFISolver::run()
   std::unique_ptr<double[]> coeffs { new double[ Nt*stride_t ] {} };
   std::unique_ptr<double,decltype(std::free)*> rho { reinterpret_cast<double*>(std::aligned_alloc(64,sizeof(double)*Nx)), std::free };
 
+  std::vector<double> int_E_squared;
+  int_E_squared.reserve(Nt);
+
   if ( rho == nullptr ) throw std::bad_alloc {};
 
   Gradient grad(x_min, x_max, Nx);
@@ -102,17 +105,21 @@ void NuFISolver::run()
       poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Nx));
       poisson.solve_step();
 
-      std::vector<double> sampled_potential = poisson.sample_electric_potential(x_min, x_max, Nx);
+      std::vector<double> sampled_potential = poisson.sample_electric_potential(x_min, x_max, Nx); // Solution of FE
 
       save_space_vector(sampled_potential, "potential", it);
 
-      std::vector<double> E_vals = grad.compute(sampled_potential); 
-      // std::vector<double> E_vals = poisson.sample_electric_field(x_min, x_max, Nx);
-      
+      // These have been tested to be equivalent
+      // ////////////////////////////////////////////////
+      std::vector<double> E_vals = grad.compute(sampled_potential); // vector grad of FE solution
       save_space_vector(E_vals, "electric", it);
+      std::vector<double> E_vals_deal = poisson.sample_electric_field(x_min, x_max, Nx); // FE grad of soution
+      save_space_vector(E_vals_deal, "electricdeal", it);
+      // ////////////////////////////////////////////////                                             
 
       double* current_coeffs = coeffs.get() + it*stride_t;
       interpolate<double, Parameters::SPLINE_ORDER>(current_coeffs, E_vals.data());
+
 
       if (it % Parameters::PLOT_FREQUENCY == 0)
       {
@@ -120,6 +127,12 @@ void NuFISolver::run()
         save_ftilda(*this, it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
         save_rho(*this, it, coeffs.get(), 128, "results/rho_" + std::to_string(it) + ".dat");
         save_Efield(it, coeffs.get(), 128, "results/field_" + std::to_string(it) + ".dat");
+
+        double int_val = 0.5 * integral_space_vector_squared(current_coeffs);
+        int_E_squared.push_back(int_val);  
+        save_space_vector(int_E_squared, "electricint", it);
+
+
       }
   }
 
