@@ -6,4 +6,4 @@ This simulation of the Vlasov-Poisson system in 1x1v dimensions uses
 
 --- 
 Todo:
-- Correct E field sampler from dealii's sovler
+- Correct spline interpolator/evaluation for discontinuity

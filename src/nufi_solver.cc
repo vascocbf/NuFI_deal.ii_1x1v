@@ -28,7 +28,7 @@ double NuFISolver::eval_ftilda(unsigned int n,
   if ( n == 0 ) return f0(x,u);
 
   const size_t stride_x = 1;
-  const size_t stride_t = stride_x*(Parameters::SPLINE_NX + Parameters::SPLINE_ORDER - 1);
+  const size_t stride_t = stride_x*(Nx + Parameters::SPLINE_ORDER - 1);
 
   double Ex;
   const double *c;
@@ -81,6 +81,8 @@ void NuFISolver::run()
 
   if ( rho == nullptr ) throw std::bad_alloc {};
 
+  Gradient grad(x_min, x_max, Nx);
+
   for (unsigned int it = 0; it < Nt; ++it)
   {
       std::cout << "Timestep " << it << " / " << Nt << std::endl << std::endl;
@@ -97,10 +99,17 @@ void NuFISolver::run()
     		rho.get()[i] =  ith_rho;
     	}
 
-      poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Parameters::SPLINE_NX));
+      poisson.set_rhs_function(std::make_unique<ChargeDensity_NuFI<1>>(rho.get(), Nx));
       poisson.solve_step();
 
-      std::vector<double> E_vals = poisson.sample_electric_field(Parameters::SPLINE_NX, Parameters::X_DOMAIN_LEFT, Parameters::X_DOMAIN_RIGHT);
+      std::vector<double> sampled_potential = poisson.sample_electric_potential(x_min, x_max, Nx);
+
+      save_space_vector(sampled_potential, "potential", it);
+
+      std::vector<double> E_vals = grad.compute(sampled_potential); 
+      // std::vector<double> E_vals = poisson.sample_electric_field(x_min, x_max, Nx);
+      
+      save_space_vector(E_vals, "electric", it);
 
       double* current_coeffs = coeffs.get() + it*stride_t;
       interpolate<double, Parameters::SPLINE_ORDER>(current_coeffs, E_vals.data());

@@ -2,7 +2,9 @@
 
 #include "nufi/parameters.h"
 #include <fstream>
+#include <stdexcept>
 #include <string>
+#include <vector>
 #include "nufi/nufi_solver.h"
 
 
