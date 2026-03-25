@@ -102,3 +102,15 @@ void save_Efield(unsigned int n,
   }
   file.close();
 }
+
+void save_space_vector(const std::vector<double>& vals, const std::string& filename, size_t it)
+{
+    std::ofstream file("results/" + filename + "_" + std::to_string(it) + ".dat");
+
+    if (!file) throw std::runtime_error("failed to start file in results/");
+
+    file << vals.size() << "\n";
+    file << Parameters::X_DOMAIN_LEFT << " " << Parameters::X_DOMAIN_RIGHT << "\n";
+    file << std::fixed << std::setprecision(8);
+    for (double val : vals) file << val << "\n";
+}

@@ -33,7 +33,7 @@ namespace Parameters
 
   //spline options
   constexpr int SPLINE_NX = 562;
-  constexpr double SPLINE_DX = LX/SPLINE_NX;
+  constexpr double SPLINE_DX = LX/(SPLINE_NX-1);
   constexpr size_t SPLINE_ORDER = 4;
 
   //Plotting options
