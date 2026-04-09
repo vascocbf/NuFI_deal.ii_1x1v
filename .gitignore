@@ -3,5 +3,6 @@ CMakeCache.txt
 compile_commands.json
 CMakeFiles/
 results/
+saved_sims/
 nufi_poisson
 *.ipynb

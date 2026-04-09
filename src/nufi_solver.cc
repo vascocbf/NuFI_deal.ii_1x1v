@@ -26,9 +26,10 @@ double NuFISolver::eval_ftilda(unsigned int n,
                                       const double *E_coeffs) const
 {
   if ( n == 0 ) return f0(x,u);
-
+  
+  const size_t order = Parameters::SPLINE_ORDER;
   const size_t stride_x = 1;
-  const size_t stride_t = stride_x*(Nx + Parameters::SPLINE_ORDER - 1);
+  const size_t stride_t = stride_x*(Nx + order - 1);
 
   double Ex;
   const double *c;
@@ -107,26 +108,32 @@ void NuFISolver::run()
 
       std::vector<double> sampled_potential = poisson.sample_electric_potential(x_min, x_max, Nx); // Solution of FE
 
-      save_space_vector(sampled_potential, "potential", it);
-
       // These have been tested to be equivalent
       // ////////////////////////////////////////////////
-      std::vector<double> E_vals = grad.compute(sampled_potential); // vector grad of FE solution
-      save_space_vector(E_vals, "electric", it);
-      std::vector<double> E_vals_deal = poisson.sample_electric_field(x_min, x_max, Nx); // FE grad of soution
-      save_space_vector(E_vals_deal, "electricdeal", it);
+      // std::vector<double> E_vals = grad.compute(sampled_potential); // vector grad of FE solution
+      // save_space_vector(E_vals, "electric", it);
+      // std::vector<double> E_vals_deal = poisson.sample_electric_field(x_min, x_max, Nx); // FE grad of soution
+      // save_space_vector(E_vals_deal, "electricdeal", it);
       // ////////////////////////////////////////////////                                             
 
-      double* current_coeffs = coeffs.get() + it*stride_t;
-      interpolate<double, Parameters::SPLINE_ORDER>(current_coeffs, E_vals.data());
 
+      // interpolate and save current field
+      double* current_coeffs = coeffs.get() + it*stride_t;
+      interpolate<double, Parameters::SPLINE_ORDER>(current_coeffs, sampled_potential.data());
+
+      std::vector<double> E_x(Nx,0.0) ;
+      for(size_t ix=0; ix<Nx; ++ix)
+      {
+        E_x[ix] = -eval<1>(Parameters::X_DOMAIN_LEFT+ix*dx, current_coeffs);
+      }
 
       if (it % Parameters::PLOT_FREQUENCY == 0)
       {
         std::cout << "Saving results... \n\n";
         save_ftilda(*this, it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
         save_rho(*this, it, coeffs.get(), 128, "results/rho_" + std::to_string(it) + ".dat");
-        save_Efield(it, coeffs.get(), 128, "results/field_" + std::to_string(it) + ".dat");
+        // save_Efield(it, coeffs.get(), 128, "results/field_" + std::to_string(it) + ".dat");
+        save_space_vector(E_x, "field", it);
 
         double int_val = 0.5 * integral_space_vector_squared(current_coeffs);
         int_E_squared.push_back(int_val);  

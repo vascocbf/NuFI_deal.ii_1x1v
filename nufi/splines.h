@@ -1,5 +1,5 @@
-#ifndef SPLINES_H
-#define SPLINES_H
+#ifndef SPLINES_HP
+#define SPLINES_HP
 
 #include <cstddef>
 

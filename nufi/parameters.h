@@ -11,11 +11,13 @@ namespace Parameters
   constexpr double X_DOMAIN_LEFT  = 0.0;
   constexpr double X_DOMAIN_RIGHT = 4*M_PI;
   constexpr double LX = std::abs(X_DOMAIN_RIGHT- X_DOMAIN_LEFT);
+  constexpr double LX_INV = 1/LX;
 
   constexpr double V_DOMAIN_LEFT = -10.0;
   constexpr double V_DOMAIN_RIGHT = 10.0;
 
-  constexpr unsigned int NV = 562;
+  constexpr unsigned int NV = 512;
+  constexpr double DV = std::abs(V_DOMAIN_RIGHT - V_DOMAIN_LEFT)/NV;
 
   // deal.ii options
   constexpr unsigned int GLOBAL_REFINEMENT = 7;
@@ -25,15 +27,16 @@ namespace Parameters
 
   constexpr double EPS = 0.01;
   constexpr double WAVE_NR = 0.5;
-  constexpr double F0_FACTOR = 0.39894228040143267793994;
+  constexpr double F0_FACTOR = 0.39894228040143267793994; // 1/sqrt(2pi)
 
   // NUFI options
-  constexpr double DT=1./16.;
-  constexpr unsigned int TMAX = 20;
+  constexpr double DT=1./10.;
+  constexpr unsigned int TMAX = 50;
 
   //spline options
-  constexpr int SPLINE_NX = 562;
-  constexpr double SPLINE_DX = LX/(SPLINE_NX-1);
+  constexpr int SPLINE_NX = 256;
+  constexpr double SPLINE_DX = LX/(SPLINE_NX);
+  constexpr double SPLINE_DX_INV = 1/SPLINE_DX;
   constexpr size_t SPLINE_ORDER = 4;
 
   //Plotting options

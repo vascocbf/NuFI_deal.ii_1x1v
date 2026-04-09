@@ -47,19 +47,19 @@ double eval(double x, const double *coeffs) noexcept
     x -= Parameters::X_DOMAIN_LEFT;
 
     // Get "periodic position" in box at origin.
-    x = x - Parameters::LX * floor( x/Parameters::LX ); 
+    x = x - Parameters::LX * floor( x*Parameters::LX_INV ); 
 
     // Knot number
-    double x_knot = floor( x/Parameters::SPLINE_DX); 
+    double x_knot = floor( x*Parameters::SPLINE_DX_INV); 
 
     size_t ii = static_cast<size_t>(x_knot);
 
     // Convert x to reference coordinates.
-    x = x/Parameters::SPLINE_DX - x_knot;
+    x = x*Parameters::SPLINE_DX_INV - x_knot;
 
     // Scale according to derivative.
     double factor = 1;
-    for ( size_t i = 0; i < dx; ++i ) factor *= 1/Parameters::SPLINE_DX;
+    for ( size_t i = 0; i < dx; ++i ) factor *= 1*Parameters::SPLINE_DX_INV;
 
     return factor*splines1d::eval<double,Parameters::SPLINE_ORDER,dx>(x, coeffs + ii);
 }
@@ -142,7 +142,7 @@ void interpolate( real *coeffs, const real *values)
         coeffs[ i ] = tmp[ i % Parameters::SPLINE_NX ];
 }
 
-double integral_space_vector(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
+inline double integral_space_vector(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
 {
   double integral = 0.0;
   double x = Parameters::X_DOMAIN_LEFT;
@@ -153,7 +153,7 @@ double integral_space_vector(const double *current_coeffs, double dx = Parameter
   return integral;
 };
 
-double integral_space_vector_squared(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
+inline double integral_space_vector_squared(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
 {
   double integral = 0.0;
   double x = Parameters::X_DOMAIN_LEFT;
