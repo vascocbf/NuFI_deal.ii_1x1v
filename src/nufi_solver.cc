@@ -17,6 +17,7 @@
 #include "nufi/save_results.h"
 #include "nufi/poisson_problem.h"
 #include "nufi/fields.h"
+#include "nufi/stopwatch.h"
 
 using namespace dealii;
 
@@ -87,8 +88,12 @@ void NuFISolver::run()
 
   Gradient grad(x_min, x_max, Nx);
 
+  double total_time = 0;
+
   for (unsigned int it = 0; it < Nt; ++it)
   {
+      stopwatch<double> timer;
+
       std::cout << "Timestep " << it << " / " << Nt << std::endl << std::endl;
 
       // compute rho
@@ -127,9 +132,12 @@ void NuFISolver::run()
         E_x[ix] = -eval<1>(Parameters::X_DOMAIN_LEFT+ix*dx, current_coeffs);
       }
 
+      double timer_elapsed = timer.elapsed();
+      total_time += timer_elapsed;
+
       if (it % Parameters::PLOT_FREQUENCY == 0)
       {
-        std::cout << "Saving results... \n\n";
+        std::cout << "Saving results...   ";
         save_ftilda(*this, it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
         save_rho(*this, it, coeffs.get(), 128, "results/rho_" + std::to_string(it) + ".dat");
         // save_Efield(it, coeffs.get(), 128, "results/field_" + std::to_string(it) + ".dat");
@@ -138,12 +146,11 @@ void NuFISolver::run()
         double int_val = 0.5 * integral_space_vector_squared(current_coeffs);
         int_E_squared.push_back(int_val);  
         save_space_vector(int_E_squared, "electricint", it);
-
-
+        std::cout << "Time since start = "<< total_time<<"\n\n";
       }
   }
 
-  std::cout << "NuFI simulation finished.\n";
+  std::cout << "NuFI simulation finished in "<< total_time <<" seconds.\n";
 }
 
 NuFISolver::NuFISolver()
