@@ -5,7 +5,7 @@
 #include "nufi/nufi_solver.h"
 
 
-void save_ftilda( const NuFISolver &solver,
+void save_f( const NuFISolver &solver,
     unsigned int n,
                                     const double *E_coeffs,
                                     unsigned int Nx_out,

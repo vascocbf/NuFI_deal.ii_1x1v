@@ -16,6 +16,8 @@ endif()
 
 deal_ii_initialize_cached_variables()
 
+find_package(OpenMP REQUIRED)
+
 # -------------------------
 
 add_library(nufi_lib
@@ -30,6 +32,10 @@ target_include_directories(nufi_lib PUBLIC
 
 deal_ii_setup_target(nufi_lib)
 
+target_link_libraries(nufi_lib
+  OpenMP::OpenMP_CXX
+) 
+
 # -------------------------
 
 add_executable(nufi_poisson
@@ -38,6 +44,8 @@ add_executable(nufi_poisson
 
 target_link_libraries(nufi_poisson
   nufi_lib
+  OpenMP::OpenMP_CXX
 )
+
 
 deal_ii_setup_target(nufi_poisson)

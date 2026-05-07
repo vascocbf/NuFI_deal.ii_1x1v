@@ -83,6 +83,7 @@ void interpolate( real *coeffs, const real *values)
 
         void operator()( const real *in, real *out ) const
         {
+            #pragma omp parallel for
             for ( size_t i = 0; i < Parameters::SPLINE_NX; ++i )
             {
                 real result = 0;
@@ -145,24 +146,26 @@ void interpolate( real *coeffs, const real *values)
 inline double integral_space_vector(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
 {
   double integral = 0.0;
-  double x = Parameters::X_DOMAIN_LEFT;
+  double xmin = Parameters::X_DOMAIN_LEFT;
+  #pragma omp parallel for reduction (+:integral)
   for (size_t i=0; i<Nx ; ++i) {
-    x += dx;
-    integral += eval<1>(x, current_coeffs)*dx;
+    double x = xmin + i * dx;
+    integral += eval<1>(x, current_coeffs);
   }
-  return integral;
+  return integral*dx;
 };
 
 inline double integral_space_vector_squared(const double *current_coeffs, double dx = Parameters::SPLINE_DX, size_t Nx = Parameters::SPLINE_NX)
 {
   double integral = 0.0;
-  double x = Parameters::X_DOMAIN_LEFT;
+  double xmin = Parameters::X_DOMAIN_LEFT;
+  #pragma omp parallel for reduction (+:integral)
   for (size_t i=0; i<Nx ; ++i) {
-    x += dx;
+    double x = xmin + i*dx;
     double val = eval<1>(x, current_coeffs); 
-    integral += val*val*dx;
+    integral += val*val;
   }
-  return integral;
+  return integral*dx;
 };
 
 class Gradient {

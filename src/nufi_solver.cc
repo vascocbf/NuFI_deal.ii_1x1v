@@ -54,6 +54,42 @@ double NuFISolver::eval_ftilda(unsigned int n,
   return f0(x,u);
 }
 
+double NuFISolver::eval_f(unsigned int n,
+                                      double x,
+                                      double u,
+                                      const double *E_coeffs) const
+{
+  if ( n == 0 ) return f0(x,u);
+  
+  const size_t order = Parameters::SPLINE_ORDER;
+  const size_t stride_x = 1;
+  const size_t stride_t = stride_x*(Nx + order - 1);
+
+  double Ex;
+  const double *c;
+
+  // Initial half-step.
+  c  = E_coeffs + n*stride_t;
+  Ex = -eval<1>(x, c);
+  u += 0.5*Parameters::DT * Ex;
+
+  while ( --n )
+  {
+      x  = x - Parameters::DT *u;
+      c  = E_coeffs + n*stride_t;
+      Ex = -eval<1>(x, c);
+      u  = u + Parameters::DT *Ex;
+  }
+
+  // The final half-step.
+  x -= Parameters::DT*u;
+  c  = E_coeffs + n*stride_t;
+  Ex = -eval<1>(x, c);
+  u += 0.5*Parameters::DT*Ex;
+
+  return f0(x,u);
+}
+
 double NuFISolver::eval_rho(const unsigned int n,
                           const double x,
                           const double *E_coeffs,
@@ -63,10 +99,12 @@ double NuFISolver::eval_rho(const unsigned int n,
   const double v_min = Parameters::V_DOMAIN_LEFT;
 
   double integral = 0.0;
+
+#pragma omp parallel for reduction (+ : integral)
   for (unsigned int i = 0; i < Nv; ++i)
-    integral += eval_ftilda(n, x, v_min + i * dv, E_coeffs) * dv;
+    integral += eval_ftilda(n, x, v_min + i * dv, E_coeffs);
   
-  return 1.0 - integral;
+  return 1.0 - integral*dv;
 }
 
 void NuFISolver::run()
@@ -93,17 +131,21 @@ void NuFISolver::run()
   for (unsigned int it = 0; it < Nt; ++it)
   {
       stopwatch<double> timer;
+      
+      double time_elapsed_before = timer.elapsed();
 
-      std::cout << "Timestep " << it << " / " << Nt << std::endl << std::endl;
+      std::cout << "Timestep " << it << " / " << Nt << " (simulation time = "<< it*Parameters::DT << ")"<< std::endl;
 
       // compute rho
 
       double dx = Parameters::SPLINE_DX;
-      double x = Parameters::X_DOMAIN_LEFT;
-
-    	for(size_t i = 0; i<Nx; i++, x+=dx)
+      
+      #pragma omp parallel for
+    	for(size_t i = 0; i<Nx; i++)
     	{
+        double x = Parameters::X_DOMAIN_LEFT + i*dx;
         double ith_rho = eval_rho(it, x, coeffs.get(),Parameters::NV); 
+
         AssertThrow(std::isfinite(ith_rho), ExcMessage("NaN detected in rho"));
     		rho.get()[i] =  ith_rho;
     	}
@@ -126,7 +168,9 @@ void NuFISolver::run()
       double* current_coeffs = coeffs.get() + it*stride_t;
       interpolate<double, Parameters::SPLINE_ORDER>(current_coeffs, sampled_potential.data());
 
+
       std::vector<double> E_x(Nx,0.0) ;
+      #pragma omp parallel for
       for(size_t ix=0; ix<Nx; ++ix)
       {
         E_x[ix] = -eval<1>(Parameters::X_DOMAIN_LEFT+ix*dx, current_coeffs);
@@ -134,12 +178,13 @@ void NuFISolver::run()
 
       double timer_elapsed = timer.elapsed();
       total_time += timer_elapsed;
-
+      
+      std::cout << "step made in "<< timer_elapsed-time_elapsed_before <<" seconds\n\n";
       if (it % Parameters::PLOT_FREQUENCY == 0)
       {
         std::cout << "Saving results...   ";
-        save_ftilda(*this, it, coeffs.get(), 128, 128, "results/ftilda_" + std::to_string(it) + ".dat");
-        save_rho(*this, it, coeffs.get(), 128, "results/rho_" + std::to_string(it) + ".dat");
+        save_f(*this, it, coeffs.get(), Parameters::SPLINE_NX, Parameters::NV, "results/ftilda_" + std::to_string(it) + ".dat");
+        save_rho(*this, it, coeffs.get(), Parameters::SPLINE_NX, "results/rho_" + std::to_string(it) + ".dat");
         // save_Efield(it, coeffs.get(), 128, "results/field_" + std::to_string(it) + ".dat");
         save_space_vector(E_x, "field", it);
 

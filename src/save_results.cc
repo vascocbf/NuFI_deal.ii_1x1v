@@ -8,7 +8,7 @@
 #include "nufi/nufi_solver.h"
 
 
-void save_ftilda( const NuFISolver &solver,
+void save_f( const NuFISolver &solver,
     unsigned int n,
                                     const double *E_coeffs,
                                     unsigned int Nx_out,
@@ -38,7 +38,7 @@ void save_ftilda( const NuFISolver &solver,
       {
           double v = vmin + (j + 0.5)*dv;
 
-          double val = solver.eval_ftilda(n, x, v, E_coeffs);
+          double val = solver.eval_f(n, x, v, E_coeffs);
 
           file << val;
 

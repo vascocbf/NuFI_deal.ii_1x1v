@@ -20,6 +20,8 @@ void clear_results_directory(const std::string &dir)
 
 int main()
 {
+  #include <omp.h>
+std::cout << "Threads: " << omp_get_max_threads() << "\n";
     try
     {
         clear_results_directory("results");
